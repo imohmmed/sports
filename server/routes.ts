@@ -106,14 +106,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "URL parameter required" });
       }
 
-      // Fetch the content from the target URL
-      const response = await fetch(targetUrl);
+      console.log(`[Proxy] Fetching: ${targetUrl}`);
+
+      // Fetch the content from the target URL with proper headers
+      const response = await fetch(targetUrl, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+          "Accept": "*/*",
+        },
+      });
       
       if (!response.ok) {
+        console.error(`[Proxy] Failed to fetch: ${response.status} ${response.statusText}`);
         return res.status(response.status).json({ message: "Failed to fetch stream" });
       }
 
       const contentType = response.headers.get("content-type") || "";
+      console.log(`[Proxy] Content-Type: ${contentType}`);
 
       // Enable CORS
       res.setHeader("Access-Control-Allow-Origin", "*");
@@ -122,24 +131,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range");
       
       // If it's an M3U8 playlist, rewrite URLs to go through proxy
-      if (contentType.includes("mpegurl") || contentType.includes("m3u8") || targetUrl.endsWith(".m3u8")) {
+      if (contentType.includes("mpegurl") || contentType.includes("m3u8") || contentType.includes("x-mpegURL") || targetUrl.endsWith(".m3u8")) {
         const text = await response.text();
+        
+        if (!text || text.length === 0) {
+          console.error("[Proxy] Empty M3U8 response");
+          return res.status(500).json({ message: "Empty playlist" });
+        }
+        
+        console.log(`[Proxy] M3U8 content (first 200 chars): ${text.substring(0, 200)}`);
+        
+        // Extract base URL components
+        const urlObj = new URL(targetUrl);
         const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
+        const origin = `${urlObj.protocol}//${urlObj.host}`;
         
         // Rewrite relative URLs in M3U8 to go through our proxy
         const proxiedContent = text.split("\n").map(line => {
+          const trimmed = line.trim();
+          
           // Skip comments and empty lines
-          if (line.startsWith("#") || !line.trim()) {
+          if (trimmed.startsWith("#") || !trimmed) {
             return line;
           }
           
-          // Check if line is a URL
-          if (line.includes("://") || line.endsWith(".m3u8") || line.endsWith(".ts")) {
-            const absoluteUrl = line.includes("://") ? line : baseUrl + line;
-            return `/api/proxy-stream?url=${encodeURIComponent(absoluteUrl)}`;
+          // Determine absolute URL based on path type
+          let absoluteUrl = "";
+          
+          if (trimmed.includes("://")) {
+            // Already absolute URL
+            absoluteUrl = trimmed;
+          } else if (trimmed.startsWith("/")) {
+            // Absolute path from root (e.g., /hls/...)
+            absoluteUrl = origin + trimmed;
+          } else if (trimmed.endsWith(".m3u8") || trimmed.endsWith(".ts")) {
+            // Relative path
+            absoluteUrl = baseUrl + trimmed;
+          } else {
+            // Not a URL, return as-is
+            return line;
           }
           
-          return line;
+          return `/api/proxy-stream?url=${encodeURIComponent(absoluteUrl)}`;
         }).join("\n");
         
         res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
@@ -156,9 +189,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const buffer = await response.arrayBuffer();
         res.send(Buffer.from(buffer));
       }
-    } catch (error) {
-      console.error("Proxy error:", error);
-      res.status(500).json({ message: "Proxy failed" });
+    } catch (error: any) {
+      console.error("[Proxy] Error:", error.message || error);
+      res.status(500).json({ message: "Proxy failed", error: error.message });
     }
   });
 
@@ -187,6 +220,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Clean up expired sessions first
+      await storage.cleanupExpiredSessions();
+      
       // Check for active sessions
       const activeSessions = await storage.getActiveSessionsForUser(userId);
       
@@ -317,14 +353,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Cleanup expired sessions periodically
+  // Cleanup expired sessions periodically (every 30 seconds)
   setInterval(async () => {
     try {
       await storage.cleanupExpiredSessions();
     } catch (error) {
       console.error("Error cleaning up sessions:", error);
     }
-  }, 60 * 1000); // Every minute
+  }, 30 * 1000); // Every 30 seconds
 
   const httpServer = createServer(app);
 

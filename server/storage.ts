@@ -157,14 +157,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getActiveSessionsForUser(userId: string): Promise<ActiveSession[]> {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    // Consider sessions active if heartbeat within last 90 seconds
+    const ninetySecondsAgo = new Date(Date.now() - 90 * 1000);
     return await db
       .select()
       .from(activeSessions)
       .where(
         and(
           eq(activeSessions.userId, userId),
-          gt(activeSessions.lastHeartbeat, fiveMinutesAgo)
+          gt(activeSessions.lastHeartbeat, ninetySecondsAgo)
         )
       );
   }
@@ -181,10 +182,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cleanupExpiredSessions(): Promise<void> {
-    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    // Clean up sessions older than 90 seconds (1.5 minutes)
+    const ninetySecondsAgo = new Date(Date.now() - 90 * 1000);
     await db
       .delete(activeSessions)
-      .where(lt(activeSessions.lastHeartbeat, fiveMinutesAgo));
+      .where(lt(activeSessions.lastHeartbeat, ninetySecondsAgo));
   }
 }
 
