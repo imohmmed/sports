@@ -223,15 +223,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up expired sessions first
       await storage.cleanupExpiredSessions();
       
-      // Check for active sessions
+      // End all existing active sessions for this user (force new session)
       const activeSessions = await storage.getActiveSessionsForUser(userId);
-      
-      // If there's already an active session, return conflict
-      if (activeSessions.length > 0) {
-        return res.status(409).json({ 
-          message: "Already streaming on another device",
-          existingSession: true
-        });
+      for (const session of activeSessions) {
+        await storage.deleteSession(session.sessionToken);
       }
 
       // Create new session

@@ -60,21 +60,12 @@ export default function Player() {
     onSuccess: (data: any) => {
       setSessionToken(data.sessionToken);
     },
-    onError: (error: Error) => {
-      if (error.message.includes("409")) {
-        toast({
-          title: "Already Streaming",
-          description: "You're already watching on another device. Please stop that stream first.",
-          variant: "destructive",
-        });
-        setTimeout(() => setLocation("/"), 2000);
-      } else {
-        toast({
-          title: "Error",
-          description: "Failed to start stream session",
-          variant: "destructive",
-        });
-      }
+    onError: () => {
+      toast({
+        title: "خطأ",
+        description: "فشل في بدء البث. حاول مرة أخرى",
+        variant: "destructive",
+      });
     },
   });
 

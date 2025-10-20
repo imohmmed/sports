@@ -2,26 +2,7 @@
 
 ## Overview
 
-AlAli Sport is a subscription-based sports streaming platform focused on Arabic-language football/soccer content. The application provides live streaming of beIN Sports channels with multiple quality options (FHD, HD, LOW). The platform features a premium viewing experience with RTL (Right-to-Left) Arabic language support, subscription management, and secure stream URL encryption.
-
-The project is built as a full-stack web application with a React frontend and Express backend, utilizing PostgreSQL for data persistence and Replit's authentication system for user management.
-
-## Recent Changes (October 20, 2025)
-
-- ✅ Implemented complete Replit Auth integration for user authentication
-- ✅ Built PostgreSQL database schema with users, channels, channel streams, and active sessions
-- ✅ Seeded database with 13 BeIN Sports channels (Bn sport, Bn 1-9, Bn XTRA 1-2, BN NPA)
-- ✅ Created stream URL encryption/decryption system for content protection
-- ✅ Implemented session-based concurrent device enforcement (one device per user)
-- ✅ Built video player with HLS.js for adaptive streaming
-- ✅ **Enhanced admin dashboard with monthly subscription management:**
-  - Statistics cards showing total users, active subscribers, expired subscriptions, and inactive users
-  - Complete users table with subscription status and expiry dates
-  - Monthly subscription system (1, 2, 3, 6, or 12 months)
-  - Automatic subscription expiration checking on stream access
-- ✅ Removed OAuth consent page from login flow
-- ✅ Configured admin user (it.mohmmed@yahoo.com) with full privileges
-- ✅ Tested complete admin dashboard end-to-end successfully
+AlAli Sport is a subscription-based sports streaming platform dedicated to Arabic-language football content, primarily offering live streaming of beIN Sports channels in multiple quality options (FHD, HD, LOW). It provides a premium viewing experience with Right-to-Left (RTL) Arabic language support, robust subscription management, and secure stream URL encryption. The platform aims to be a leading destination for Arabic sports enthusiasts, offering a seamless and protected streaming service.
 
 ## User Preferences
 
@@ -29,248 +10,40 @@ Preferred communication style: Simple, everyday language.
 
 ## System Architecture
 
-### Frontend Architecture
+### UI/UX Decisions
 
-**Framework**: React with TypeScript, bundled using Vite
+The frontend is built with React, TypeScript, and Vite, utilizing `shadcn/ui` components based on Radix UI primitives. It features a "new-york" style dark theme by default, with an RTL-first design and comprehensive Arabic language support achieved using Tailwind CSS. Typography uses Cairo for Arabic and Inter for Latin text. The design is inspired by premium sports streaming platforms, featuring Netflix-style card layouts, responsive grid layouts, and animated transitions for an enhanced user experience. Video playback is handled by HLS.js, supporting adaptive streaming, quality selection, and cross-browser fullscreen functionality.
 
-**UI Component System**: The application uses shadcn/ui components built on Radix UI primitives, providing a comprehensive set of accessible, customizable components. The design system follows a "new-york" style variant with dark mode as the primary theme.
+### Technical Implementations
 
-**Styling Approach**: Tailwind CSS with extensive customization for RTL Arabic support. The design is inspired by premium sports streaming platforms (DAZN, ESPN+, beIN Sports) with Netflix-style card layouts. Custom CSS variables enable theme switching between dark and light modes.
+The backend, developed with Express.js and TypeScript, leverages Replit's OpenID Connect (OIDC) via Passport.js for authentication and PostgreSQL (Neon serverless) for data persistence, managed with Drizzle ORM. Key security features include AES-256-CBC encryption for stream URLs, session-based authentication with HTTP-only cookies, and active session tracking with an "Auto Session Replacement System" that instantly terminates previous sessions when a new stream is accessed. The RESTful API provides endpoints for authentication, channel listing, encrypted stream retrieval, session management (including heartbeat and cleanup), and an admin dashboard for user and subscription management.
 
-**Typography**: Uses Cairo font for Arabic text and Inter for numbers/Latin text, loaded from Google Fonts.
+### Feature Specifications
 
-**State Management**: TanStack Query (React Query) for server state management, with custom query client configuration for API requests.
+- **Subscription Management**: Supports 1, 2, 3, 6, or 12-month subscriptions with automatic expiration checks.
+- **Concurrent Device Management**: Enforces one active stream per user by automatically replacing older sessions.
+- **Stream Proxy System**: Handles HLS stream proxying, M3U8 playlist rewriting, and resolves CORS issues.
+- **Admin Dashboard**: Provides statistics on total users, active/expired subscriptions, and inactive users, along with tools to activate or deactivate user subscriptions.
 
-**Routing**: Wouter for client-side routing, providing a lightweight alternative to React Router.
+### System Design Choices
 
-**Video Playback**: HLS.js for adaptive streaming of encrypted video URLs, supporting multiple quality levels per channel. The video player features play/pause, volume control, fullscreen, and quality selection with smooth transitions.
+- **Authentication**: Replit OIDC for seamless integration and Passport.js for session management.
+- **Data Storage**: PostgreSQL with Drizzle ORM for type-safe and scalable data handling.
+- **Content Protection**: Encrypted stream URLs both at rest and in transit.
+- **Session Handling**: Server-side sessions with a 7-day TTL and a heartbeat mechanism for active session monitoring.
+- **API Security**: CSRF protection, role-based access control for admin functionalities, and secure cookie practices.
 
-**Key Design Decisions**:
-- RTL-first design with Arabic as the primary language
-- Dark mode prioritized for premium viewing experience
-- Component-based architecture with reusable UI elements
-- Responsive grid layouts for channel display
-- Animated transitions and hover effects for enhanced UX
-- HLS.js for cross-platform video playback compatibility
+## External Dependencies
 
-### Backend Architecture
-
-**Framework**: Express.js with TypeScript running on Node.js
-
-**Authentication Strategy**: Replit's OpenID Connect (OIDC) integration using Passport.js strategy. Session-based authentication with PostgreSQL session storage (connect-pg-simple). This provides seamless authentication within the Replit environment.
-
-**Security Measures**:
-- Stream URL encryption using AES-256-CBC cipher to protect content URLs
-- Session-based authentication with secure, HTTP-only cookies
-- Active session tracking for concurrent device management
-- CSRF protection through session validation
-- Admin-only endpoints for subscription management
-
-**API Design**: RESTful API with the following key endpoints:
-- `/api/auth/*` - Authentication flow (login, logout, user info)
-- `/api/channels` - Public channel listing with quality options
-- `/api/stream/:channelId/:quality` - Encrypted stream URL retrieval (subscription-required, auto-checks expiry)
-- `/api/session/*` - Session management (create, heartbeat, end)
-- `/api/admin/users` - Get all users with subscription details
-- `/api/admin/stats` - Get subscription statistics (total, active, expired, inactive)
-- `/api/admin/subscription` - Update user subscription with duration (1-12 months)
-
-**Database ORM**: Drizzle ORM with PostgreSQL, providing type-safe database operations and schema management.
-
-**Real-time Features**: HTTP-based heartbeat mechanism for active session monitoring and concurrent device enforcement (30-second intervals).
-
-**Key Design Decisions**:
-- Session-based auth chosen over JWT for better security and session control
-- URL encryption protects premium content from unauthorized access
-- Separation of public (channel list) and protected (stream URLs) endpoints
-- Admin functionality segregated with role-based access control
-- Session cleanup every 60 seconds to prevent stale session accumulation
-
-### Data Storage Solutions
-
-**Database**: PostgreSQL (via Neon serverless)
-
-**Schema Design**:
-
-1. **sessions** - Passport session storage (required for Replit Auth)
-   - Stores serialized session data with expiration timestamps
-   - Indexed on expiry for efficient cleanup
-
-2. **users** - User accounts and subscription status
-   - Fields: id, email, firstName, lastName, profileImageUrl, isSubscribed, isAdmin, subscriptionExpiresAt
-   - Tracks subscription status, admin privileges, and subscription expiry dates
-   - Integrates with Replit OIDC for user identity
-   - subscriptionExpiresAt enables monthly subscription management
-
-3. **channels** - Sports channel definitions
-   - Fields: id, name, displayOrder
-   - Supports ordering for UI presentation
-   - 13 channels seeded: Bn sport, Bn 1-9, Bn XTRA 1-2, BN NPA
-
-4. **channelStreams** - Stream URLs per channel and quality
-   - Fields: id, channelId, quality (FHD/HD/LOW), encryptedUrl
-   - Multiple streams per channel for quality selection
-   - URLs are encrypted at rest using AES-256-CBC
-
-5. **activeSessions** - Concurrent device tracking
-   - Fields: id, userId, sessionToken, channelId, lastHeartbeat
-   - Enables enforcement of concurrent viewing limits (one device per user)
-   - Automatically cleaned up on expiration (5-minute timeout)
-
-**Database Connection**: Neon serverless PostgreSQL with WebSocket support for connection pooling.
-
-**Migration Strategy**: Drizzle Kit for schema migrations with push-based deployment.
-
-**Key Design Decisions**:
-- Normalized schema separating channels from stream quality options
-- Encrypted URLs stored in database for content protection
-- Active session tracking enables business rule enforcement (device limits)
-- UUID primary keys for security and scalability
-
-### Authentication and Authorization
-
-**Provider**: Replit OpenID Connect (OIDC)
-
-**Flow**:
-1. User initiates login via `/api/login` endpoint
-2. Redirect to Replit OIDC provider for authentication
-3. Callback to `/api/callback` with authorization code
-4. Exchange code for tokens and create user session
-5. User information synchronized to local database
-
-**Session Management**:
-- Server-side sessions stored in PostgreSQL
-- 7-day session TTL with automatic renewal
-- Secure, HTTP-only cookies for session tokens
-- Session cleanup on logout or expiration
-
-**Authorization Levels**:
-1. **Unauthenticated** - Can view channel list (locked state)
-2. **Authenticated (Not Subscribed)** - Can view subscription prompts
-3. **Authenticated (Subscribed)** - Full access to stream playback
-4. **Admin** - Subscription management capabilities
-
-**Middleware**:
-- `isAuthenticated` - Protects routes requiring login
-- Role-based checks for admin functionality
-- Query-level authorization for subscription-only content
-
-**Key Design Decisions**:
-- Leverages Replit's authentication infrastructure
-- Local user table maintains subscription state separate from auth provider
-- Session-based approach enables server-side validation and session revocation
-- Admin flag in user table for role-based access control
-
-### External Dependencies
-
-**Third-Party Services**:
-
-1. **Replit OpenID Connect (OIDC)**
-   - Purpose: User authentication and identity management
-   - Integration: Passport.js with openid-client strategy
-   - Environment variables: REPL_ID, ISSUER_URL, SESSION_SECRET
-
-2. **Neon Serverless PostgreSQL**
-   - Purpose: Primary database with WebSocket support
-   - Connection: @neondatabase/serverless driver
-   - Environment variables: DATABASE_URL
-
-3. **Telegram**
-   - Purpose: Subscription support contact (t.me/mohmmed)
-   - Integration: External link for user support
-   - Used for subscription activation requests
-
-**Content Delivery**:
-- HLS stream URLs from tecflix.vip (third-party sports streaming service)
-- URLs encrypted server-side before storage and transmission
-- Client-side HLS.js handles adaptive bitrate streaming
-
-**Font Resources**:
-- Google Fonts (Cairo, Inter)
-- Loaded via client HTML for Arabic and Latin typography
-
-**Build Tools**:
-- Vite (frontend bundling and dev server)
-- esbuild (backend bundling for production)
-- Drizzle Kit (database migrations)
-- TypeScript (type checking)
-
-**Key npm Dependencies**:
-- @radix-ui/* - Headless UI component primitives
-- @tanstack/react-query - Server state management
-- hls.js - HLS video streaming
-- drizzle-orm - Type-safe database ORM
-- express-session - Session management
-- passport - Authentication middleware
-- openid-client - OIDC client library
-- crypto (built-in) - URL encryption/decryption
-
-**Environment Requirements**:
-- DATABASE_URL - PostgreSQL connection string
-- ENCRYPTION_KEY - AES-256 encryption key for stream URLs (defaults to "default-32-character-secret-key!" for development)
-- SESSION_SECRET - Express session signing secret
-- REPL_ID - Replit deployment identifier
-- REPLIT_DOMAINS - Allowed domains for OIDC
-- ISSUER_URL - OIDC provider endpoint (default: https://replit.com/oidc)
-
-**Key Design Decisions**:
-- Minimal external service dependencies for reliability
-- Encryption key management via environment variables
-- HTTP-based heartbeat for session management (WebSocket as optional enhancement)
-- Third-party stream URLs encrypted to prevent unauthorized access
-- Neon serverless PostgreSQL chosen for Replit compatibility and WebSocket support
-
-## Application Status
-
-✅ **Fully Functional** - All core features implemented and tested:
-- User authentication with Replit Auth
-- Channel browsing with real database data
-- Subscription-based access control
-- Video streaming with HLS.js
-- Concurrent device enforcement
-- Admin subscription management
-
-## How to Use
-
-### For Regular Users:
-1. Visit the homepage and click "ابدأ الآن" (Get Started)
-2. Log in with Replit Auth
-3. Contact T.me/mohmmed for subscription activation
-4. Once subscribed, browse and watch all 13 BeIN Sports channels
-5. Select quality (FHD/HD/LOW) based on your connection
-
-### For Admins:
-1. Log in with admin account (it.mohmmed@yahoo.com)
-2. Navigate to `/admin`
-3. View subscription statistics:
-   - Total users count
-   - Active subscribers (subscribed and not expired)
-   - Expired subscriptions (subscribed but past expiry date)
-   - Inactive users (not subscribed)
-4. Manage users from the users table:
-   - View all users with their subscription status and expiry dates
-   - Click "تفعيل" (Activate) to activate a subscription
-   - Select duration: 1, 2, 3, 6, or 12 months
-   - Click "إلغاء" (Deactivate) to cancel an active subscription
-5. Changes take effect immediately and stats update in real-time
-
-### Database Management:
-- Run `tsx server/seed.ts` to re-seed channel data (only if channels don't exist)
-- Use `npm run db:push` to sync schema changes
-- Admin users can be created by setting `is_admin = true` in the database
-
-## Known Limitations
-
-- One concurrent stream per user (enforced by session tracking)
-- Stream URLs are encrypted and require active, non-expired subscription
-- Subscriptions automatically expire based on duration (checked on stream access)
-- WebSocket connection for heartbeat is optional (HTTP fallback in place)
-
-## Future Enhancements
-
-- Email notifications for subscription changes
-- User dashboard with viewing history
-- Payment integration for automatic subscription management
-- Multi-language support (English, French)
-- Mobile app with React Native
-- Live match schedule and notifications
+1.  **Replit OpenID Connect (OIDC)**: Used for user authentication and identity management.
+2.  **Neon Serverless PostgreSQL**: The primary database solution, utilizing `@neondatabase/serverless` for connection.
+3.  **Telegram**: Used as an external link for subscription support and activation (t.me/mohmmed).
+4.  **HLS stream URLs from tecflix.vip**: Third-party service providing sports streaming content, with URLs encrypted by the platform.
+5.  **Google Fonts**: Used for custom typography (Cairo, Inter).
+6.  **Key npm Libraries**:
+    *   `@radix-ui/*`: Headless UI components.
+    *   `@tanstack/react-query`: Server state management.
+    *   `hls.js`: HLS video streaming.
+    *   `drizzle-orm`: Type-safe database ORM.
+    *   `express-session`, `passport`, `openid-client`: Authentication and session management.
+    *   `crypto`: Node.js built-in module for encryption/decryption.
