@@ -32,7 +32,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Users, UserCheck, UserX, Clock } from "lucide-react";
+import { Users, UserCheck, UserX, Clock, Shield, ShieldOff } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
 
@@ -42,7 +42,7 @@ export default function Admin() {
   const { toast } = useToast();
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showDialog, setShowDialog] = useState(false);
-  const [action, setAction] = useState<"activate" | "deactivate">("activate");
+  const [action, setAction] = useState<"activate" | "deactivate" | "make_admin" | "remove_admin">("activate");
   const [durationMonths, setDurationMonths] = useState("1");
 
   useEffect(() => {
@@ -115,7 +115,38 @@ export default function Admin() {
     },
   });
 
-  const handleOpenDialog = (user: User, actionType: "activate" | "deactivate") => {
+  const updateAdminStatusMutation = useMutation({
+    mutationFn: async ({
+      userId,
+      isAdmin,
+    }: {
+      userId: string;
+      isAdmin: boolean;
+    }) => {
+      await apiRequest("POST", "/api/admin/admin-status", {
+        userId,
+        isAdmin,
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "تم بنجاح",
+        description: "تم تحديث صلاحيات الإدارة بنجاح",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/users"] });
+      setShowDialog(false);
+      setSelectedUser(null);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "خطأ",
+        description: error?.message || "فشل تحديث الصلاحيات",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleOpenDialog = (user: User, actionType: "activate" | "deactivate" | "make_admin" | "remove_admin") => {
     setSelectedUser(user);
     setAction(actionType);
     setDurationMonths("1");
@@ -125,11 +156,18 @@ export default function Admin() {
   const handleConfirm = () => {
     if (!selectedUser) return;
 
-    updateSubscriptionMutation.mutate({
-      userId: selectedUser.id,
-      isSubscribed: action === "activate",
-      durationMonths: action === "activate" ? parseInt(durationMonths) : undefined,
-    });
+    if (action === "make_admin" || action === "remove_admin") {
+      updateAdminStatusMutation.mutate({
+        userId: selectedUser.id,
+        isAdmin: action === "make_admin",
+      });
+    } else {
+      updateSubscriptionMutation.mutate({
+        userId: selectedUser.id,
+        isSubscribed: action === "activate",
+        durationMonths: action === "activate" ? parseInt(durationMonths) : undefined,
+      });
+    }
   };
 
   const handleLogout = () => {
@@ -164,6 +202,33 @@ export default function Admin() {
     }
   };
 
+  const getDialogContent = () => {
+    switch (action) {
+      case "make_admin":
+        return {
+          title: "منح صلاحيات الإدارة",
+          description: `هل أنت متأكد من منح صلاحيات الإدارة للمستخدم: ${selectedUser?.email}؟`,
+        };
+      case "remove_admin":
+        return {
+          title: "إزالة صلاحيات الإدارة",
+          description: `هل أنت متأكد من إزالة صلاحيات الإدارة من المستخدم: ${selectedUser?.email}؟`,
+        };
+      case "activate":
+        return {
+          title: "تفعيل الاشتراك",
+          description: `تفعيل اشتراك المستخدم: ${selectedUser?.email}`,
+        };
+      case "deactivate":
+        return {
+          title: "إلغاء الاشتراك",
+          description: `إلغاء اشتراك المستخدم: ${selectedUser?.email}`,
+        };
+      default:
+        return { title: "", description: "" };
+    }
+  };
+
   if (isLoading || !typedUser?.isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -174,6 +239,8 @@ export default function Admin() {
       </div>
     );
   }
+
+  const dialogContent = getDialogContent();
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -190,7 +257,7 @@ export default function Admin() {
             <h1 className="text-3xl font-bold mb-2 text-foreground" data-testid="text-admin-title">
               لوحة التحكم - الإدارة
             </h1>
-            <p className="text-muted-foreground mb-8">إدارة اشتراكات المستخدمين</p>
+            <p className="text-muted-foreground mb-8">إدارة اشتراكات المستخدمين والصلاحيات</p>
 
             {/* Stats Cards */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -261,7 +328,8 @@ export default function Admin() {
                         <TableRow>
                           <TableHead className="text-right">الاسم</TableHead>
                           <TableHead className="text-right">البريد الإلكتروني</TableHead>
-                          <TableHead className="text-right">الحالة</TableHead>
+                          <TableHead className="text-right">الصلاحيات</TableHead>
+                          <TableHead className="text-right">حالة الاشتراك</TableHead>
                           <TableHead className="text-right">تاريخ الانتهاء</TableHead>
                           <TableHead className="text-right">الإجراءات</TableHead>
                         </TableRow>
@@ -269,17 +337,24 @@ export default function Admin() {
                       <TableBody>
                         {users?.map((user) => {
                           const status = getSubscriptionStatus(user);
+                          const isCurrentUser = user.id === typedUser?.id;
                           return (
                             <TableRow key={user.id} data-testid={`row-user-${user.id}`}>
                               <TableCell className="font-medium">
                                 {user.firstName} {user.lastName}
-                                {user.isAdmin && (
-                                  <Badge className="mr-2" variant="outline">
+                              </TableCell>
+                              <TableCell>{user.email}</TableCell>
+                              <TableCell>
+                                {user.isAdmin ? (
+                                  <Badge variant="default" className="bg-purple-600">
                                     مدير
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="secondary">
+                                    مستخدم
                                   </Badge>
                                 )}
                               </TableCell>
-                              <TableCell>{user.email}</TableCell>
                               <TableCell>
                                 <Badge variant={status.variant} data-testid={`status-${user.id}`}>
                                   {status.text}
@@ -289,7 +364,8 @@ export default function Admin() {
                                 {formatDate(user.subscriptionExpiresAt)}
                               </TableCell>
                               <TableCell>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 flex-wrap">
+                                  {/* Subscription buttons */}
                                   {!user.isSubscribed || (user.subscriptionExpiresAt && new Date(user.subscriptionExpiresAt) <= new Date()) ? (
                                     <Button
                                       size="sm"
@@ -297,7 +373,7 @@ export default function Admin() {
                                       onClick={() => handleOpenDialog(user, "activate")}
                                       data-testid={`button-activate-${user.id}`}
                                     >
-                                      تفعيل
+                                      تفعيل اشتراك
                                     </Button>
                                   ) : (
                                     <Button
@@ -306,8 +382,33 @@ export default function Admin() {
                                       onClick={() => handleOpenDialog(user, "deactivate")}
                                       data-testid={`button-deactivate-${user.id}`}
                                     >
-                                      إلغاء
+                                      إلغاء اشتراك
                                     </Button>
+                                  )}
+                                  
+                                  {/* Admin buttons */}
+                                  {!user.isAdmin ? (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleOpenDialog(user, "make_admin")}
+                                      data-testid={`button-make-admin-${user.id}`}
+                                    >
+                                      <Shield className="h-4 w-4 ml-1" />
+                                      منح صلاحيات
+                                    </Button>
+                                  ) : (
+                                    !isCurrentUser && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleOpenDialog(user, "remove_admin")}
+                                        data-testid={`button-remove-admin-${user.id}`}
+                                      >
+                                        <ShieldOff className="h-4 w-4 ml-1" />
+                                        إزالة صلاحيات
+                                      </Button>
+                                    )
                                   )}
                                 </div>
                               </TableCell>
@@ -326,18 +427,12 @@ export default function Admin() {
 
       <Footer />
 
-      {/* Subscription Dialog */}
+      {/* Action Dialog */}
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {action === "activate" ? "تفعيل الاشتراك" : "إلغاء الاشتراك"}
-            </DialogTitle>
-            <DialogDescription>
-              {action === "activate"
-                ? `تفعيل اشتراك المستخدم: ${selectedUser?.email}`
-                : `إلغاء اشتراك المستخدم: ${selectedUser?.email}`}
-            </DialogDescription>
+            <DialogTitle>{dialogContent.title}</DialogTitle>
+            <DialogDescription>{dialogContent.description}</DialogDescription>
           </DialogHeader>
 
           {action === "activate" && (
@@ -368,10 +463,10 @@ export default function Admin() {
             </Button>
             <Button
               onClick={handleConfirm}
-              disabled={updateSubscriptionMutation.isPending}
+              disabled={updateSubscriptionMutation.isPending || updateAdminStatusMutation.isPending}
               data-testid="button-confirm-dialog"
             >
-              {updateSubscriptionMutation.isPending ? "جاري التحديث..." : "تأكيد"}
+              {(updateSubscriptionMutation.isPending || updateAdminStatusMutation.isPending) ? "جاري التحديث..." : "تأكيد"}
             </Button>
           </DialogFooter>
         </DialogContent>

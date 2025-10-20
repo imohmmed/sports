@@ -218,6 +218,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Update user admin status
+  app.post("/api/admin/admin-status", isAuthenticated, async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const requestingUser = await storage.getUser(requestingUserId);
+
+      if (!requestingUser?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { userId, isAdmin } = req.body;
+      
+      // Prevent removing own admin status
+      if (userId === requestingUserId && !isAdmin) {
+        return res.status(400).json({ message: "Cannot remove your own admin privileges" });
+      }
+
+      await storage.updateUserAdminStatus(userId, isAdmin);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating admin status:", error);
+      res.status(500).json({ message: "Failed to update admin status" });
+    }
+  });
+
   // Cleanup expired sessions periodically
   setInterval(async () => {
     try {
