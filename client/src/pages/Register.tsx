@@ -25,11 +25,7 @@ export default function Register() {
       if (password.length < 6) {
         throw new Error("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       }
-      return await apiRequest("/api/auth/register", {
-        method: "POST",
-        body: JSON.stringify({ email, password, firstName, lastName }),
-        headers: { "Content-Type": "application/json" },
-      });
+      return await apiRequest("POST", "/api/auth/register", { email, password, firstName, lastName });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
