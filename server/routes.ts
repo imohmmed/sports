@@ -127,7 +127,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get all channels (public - shows locked state if not subscribed)
+  // Get all categories with groups and channels (hierarchical structure)
+  app.get("/api/categories", async (req, res) => {
+    try {
+      const categories = await storage.getAllCategories();
+      const categoriesWithGroups = await Promise.all(
+        categories.map(async (category) => {
+          const groups = await storage.getGroupsByCategory(category.id);
+          const groupsWithChannels = await Promise.all(
+            groups.map(async (group) => {
+              const channels = await storage.getChannelsByGroup(group.id);
+              const channelsWithStreams = await Promise.all(
+                channels.map(async (channel) => {
+                  const streams = await storage.getChannelStreams(channel.id);
+                  return {
+                    id: channel.id,
+                    name: channel.name,
+                    displayOrder: channel.displayOrder,
+                    streams: streams.map((s) => ({
+                      quality: s.quality || "AUTO",
+                      hasBackup: !!s.backupEncryptedUrl,
+                    })),
+                  };
+                })
+              );
+              return {
+                id: group.id,
+                name: group.name,
+                logo: group.logo,
+                displayOrder: group.displayOrder,
+                channels: channelsWithStreams,
+              };
+            })
+          );
+          return {
+            id: category.id,
+            name: category.name,
+            displayOrder: category.displayOrder,
+            groups: groupsWithChannels,
+          };
+        })
+      );
+      res.json(categoriesWithGroups);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+      res.status(500).json({ message: "Failed to fetch categories" });
+    }
+  });
+
+  // Get all channels (legacy endpoint - kept for compatibility)
   app.get("/api/channels", async (req, res) => {
     try {
       const channels = await storage.getAllChannels();
