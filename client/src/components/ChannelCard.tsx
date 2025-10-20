@@ -13,7 +13,7 @@ interface ChannelCardProps {
 export default function ChannelCard({ name, qualities, locked, onClick }: ChannelCardProps) {
   return (
     <Card 
-      className="group overflow-hidden hover-elevate active-elevate-2 transition-all duration-300 cursor-pointer hover:scale-105"
+      className="group overflow-hidden hover-elevate active-elevate-2 transition-all duration-500 cursor-pointer hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 animate-in fade-in slide-in-from-bottom-5"
       onClick={onClick}
       data-testid={`card-channel-${name.replace(/\s+/g, '-')}`}
     >
@@ -21,38 +21,39 @@ export default function ChannelCard({ name, qualities, locked, onClick }: Channe
         <img 
           src={channelThumb} 
           alt={name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-500 group-hover:from-black/90" />
         
         {locked && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-            <Lock className="h-12 w-12 text-white" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-all duration-500">
+            <Lock className="h-12 w-12 text-white animate-pulse transition-transform duration-500 group-hover:scale-125" />
           </div>
         )}
 
         {!locked && (
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/30">
-            <div className="rounded-full bg-primary p-4">
-              <Play className="h-8 w-8 text-primary-foreground fill-primary-foreground" />
+          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-500 bg-black/30">
+            <div className="rounded-full bg-primary p-4 transition-all duration-500 group-hover:scale-110 group-hover:shadow-2xl group-hover:shadow-primary/50 animate-in zoom-in">
+              <Play className="h-8 w-8 text-primary-foreground fill-primary-foreground transition-transform duration-300 group-hover:translate-x-1" />
             </div>
           </div>
         )}
         
-        <div className="absolute bottom-0 right-0 left-0 p-4">
-          <h3 className="text-white font-bold text-lg mb-2" data-testid={`text-channel-name-${name.replace(/\s+/g, '-')}`}>
+        <div className="absolute bottom-0 right-0 left-0 p-4 transition-all duration-500 group-hover:pb-6">
+          <h3 className="text-white font-bold text-lg mb-2 transition-all duration-300 group-hover:text-primary" data-testid={`text-channel-name-${name.replace(/\s+/g, '-')}`}>
             {name}
           </h3>
           <div className="flex gap-2 flex-wrap">
-            {qualities.map((q) => (
+            {qualities.map((q, index) => (
               <Badge 
                 key={q.quality}
                 variant={q.available ? "default" : "secondary"}
-                className={`text-xs ${
-                  q.quality === 'FHD' ? 'bg-green-600 hover:bg-green-700' :
-                  q.quality === 'HD' ? 'bg-blue-600 hover:bg-blue-700' :
-                  'bg-gray-600 hover:bg-gray-700'
+                className={`text-xs transition-all duration-300 hover:scale-110 animate-in slide-in-from-bottom-3 ${
+                  q.quality === 'FHD' ? 'bg-green-600 hover:bg-green-700 hover:shadow-lg hover:shadow-green-500/50' :
+                  q.quality === 'HD' ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50' :
+                  'bg-gray-600 hover:bg-gray-700 hover:shadow-lg hover:shadow-gray-500/50'
                 }`}
+                style={{ animationDelay: `${index * 100}ms` }}
                 data-testid={`badge-quality-${q.quality}`}
               >
                 {q.quality}

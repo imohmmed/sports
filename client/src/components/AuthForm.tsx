@@ -28,12 +28,12 @@ export default function AuthForm({ onLogin, onRegister }: AuthFormProps) {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md bg-card/90 backdrop-blur-xl" data-testid="card-auth-form">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">
+      <Card className="w-full max-w-md bg-card/90 backdrop-blur-xl shadow-2xl animate-in fade-in zoom-in duration-700 hover:shadow-primary/20 transition-all" data-testid="card-auth-form">
+        <CardHeader className="text-center animate-in slide-in-from-top-5 duration-500">
+          <CardTitle className="text-2xl font-bold transition-colors duration-300">
             {isLogin ? "تسجيل الدخول" : "إنشاء حساب جديد"}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="transition-colors duration-300">
             {isLogin 
               ? "أدخل بريدك الإلكتروني وكلمة المرور للدخول"
               : "سجل الآن للحصول على اشتراك مميز"
@@ -42,8 +42,8 @@ export default function AuthForm({ onLogin, onRegister }: AuthFormProps) {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">البريد الإلكتروني</Label>
+            <div className="space-y-2 animate-in slide-in-from-right-5 duration-500 delay-100">
+              <Label htmlFor="email" className="transition-colors duration-300">البريد الإلكتروني</Label>
               <Input
                 id="email"
                 type="email"
@@ -51,12 +51,13 @@ export default function AuthForm({ onLogin, onRegister }: AuthFormProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="transition-all duration-300 focus:scale-105"
                 data-testid="input-email"
               />
             </div>
             
-            <div className="space-y-2">
-              <Label htmlFor="password">كلمة المرور</Label>
+            <div className="space-y-2 animate-in slide-in-from-right-5 duration-500 delay-200">
+              <Label htmlFor="password" className="transition-colors duration-300">كلمة المرور</Label>
               <Input
                 id="password"
                 type="password"
@@ -64,13 +65,14 @@ export default function AuthForm({ onLogin, onRegister }: AuthFormProps) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                className="transition-all duration-300 focus:scale-105"
                 data-testid="input-password"
               />
             </div>
 
             <Button 
               type="submit" 
-              className="w-full"
+              className="w-full transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/50 animate-in zoom-in duration-500 delay-300"
               data-testid={isLogin ? "button-login" : "button-register"}
             >
               {isLogin ? (
