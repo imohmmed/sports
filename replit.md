@@ -14,8 +14,14 @@ The project is built as a full-stack web application with a React frontend and E
 - ✅ Created stream URL encryption/decryption system for content protection
 - ✅ Implemented session-based concurrent device enforcement (one device per user)
 - ✅ Built video player with HLS.js for adaptive streaming
-- ✅ Created admin panel for subscription management
-- ✅ Tested complete end-to-end user flow successfully
+- ✅ **Enhanced admin dashboard with monthly subscription management:**
+  - Statistics cards showing total users, active subscribers, expired subscriptions, and inactive users
+  - Complete users table with subscription status and expiry dates
+  - Monthly subscription system (1, 2, 3, 6, or 12 months)
+  - Automatic subscription expiration checking on stream access
+- ✅ Removed OAuth consent page from login flow
+- ✅ Configured admin user (it.mohmmed@yahoo.com) with full privileges
+- ✅ Tested complete admin dashboard end-to-end successfully
 
 ## User Preferences
 
@@ -63,9 +69,11 @@ Preferred communication style: Simple, everyday language.
 **API Design**: RESTful API with the following key endpoints:
 - `/api/auth/*` - Authentication flow (login, logout, user info)
 - `/api/channels` - Public channel listing with quality options
-- `/api/stream/:channelId/:quality` - Encrypted stream URL retrieval (subscription-required)
+- `/api/stream/:channelId/:quality` - Encrypted stream URL retrieval (subscription-required, auto-checks expiry)
 - `/api/session/*` - Session management (create, heartbeat, end)
-- `/api/admin/*` - Admin operations for subscription management
+- `/api/admin/users` - Get all users with subscription details
+- `/api/admin/stats` - Get subscription statistics (total, active, expired, inactive)
+- `/api/admin/subscription` - Update user subscription with duration (1-12 months)
 
 **Database ORM**: Drizzle ORM with PostgreSQL, providing type-safe database operations and schema management.
 
@@ -89,9 +97,10 @@ Preferred communication style: Simple, everyday language.
    - Indexed on expiry for efficient cleanup
 
 2. **users** - User accounts and subscription status
-   - Fields: id, email, firstName, lastName, profileImageUrl, isSubscribed, isAdmin
-   - Tracks subscription status and admin privileges
+   - Fields: id, email, firstName, lastName, profileImageUrl, isSubscribed, isAdmin, subscriptionExpiresAt
+   - Tracks subscription status, admin privileges, and subscription expiry dates
    - Integrates with Replit OIDC for user identity
+   - subscriptionExpiresAt enables monthly subscription management
 
 3. **channels** - Sports channel definitions
    - Fields: id, name, displayOrder
@@ -231,10 +240,19 @@ Preferred communication style: Simple, everyday language.
 5. Select quality (FHD/HD/LOW) based on your connection
 
 ### For Admins:
-1. Log in with an admin account
+1. Log in with admin account (it.mohmmed@yahoo.com)
 2. Navigate to `/admin`
-3. Enter a user's ID to activate or deactivate their subscription
-4. Changes take effect immediately
+3. View subscription statistics:
+   - Total users count
+   - Active subscribers (subscribed and not expired)
+   - Expired subscriptions (subscribed but past expiry date)
+   - Inactive users (not subscribed)
+4. Manage users from the users table:
+   - View all users with their subscription status and expiry dates
+   - Click "تفعيل" (Activate) to activate a subscription
+   - Select duration: 1, 2, 3, 6, or 12 months
+   - Click "إلغاء" (Deactivate) to cancel an active subscription
+5. Changes take effect immediately and stats update in real-time
 
 ### Database Management:
 - Run `tsx server/seed.ts` to re-seed channel data (only if channels don't exist)
@@ -244,8 +262,8 @@ Preferred communication style: Simple, everyday language.
 ## Known Limitations
 
 - One concurrent stream per user (enforced by session tracking)
-- Stream URLs are encrypted and require active subscription
-- Admin panel requires manual User ID input (no user search UI)
+- Stream URLs are encrypted and require active, non-expired subscription
+- Subscriptions automatically expire based on duration (checked on stream access)
 - WebSocket connection for heartbeat is optional (HTTP fallback in place)
 
 ## Future Enhancements
