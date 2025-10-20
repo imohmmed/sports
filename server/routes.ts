@@ -1,22 +1,126 @@
-// Reference: Replit Auth integration blueprint
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupLocalAuth, isAuthenticated } from "./setupLocalAuth";
+import passport from "./localAuth";
+import bcrypt from "bcrypt";
 import { decryptUrl } from "./encryption";
 import { randomUUID } from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  setupLocalAuth(app);
 
-  // Auth routes
+  // Register new user
+  app.post("/api/auth/register", async (req, res) => {
+    try {
+      const { email, password, firstName, lastName } = req.body;
+
+      // Validate input
+      if (!email || !password) {
+        return res.status(400).json({ message: "البريد الإلكتروني وكلمة المرور مطلوبان" });
+      }
+
+      if (password.length < 6) {
+        return res.status(400).json({ message: "كلمة المرور يجب أن تكون 6 أحرف على الأقل" });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ message: "البريد الإلكتروني مسجل مسبقاً" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create user
+      const user = await storage.createUser({
+        email,
+        password: hashedPassword,
+        firstName: firstName || null,
+        lastName: lastName || null,
+      });
+
+      // Log them in automatically
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "فشل تسجيل الدخول التلقائي" });
+        }
+        res.json({ 
+          message: "تم التسجيل بنجاح",
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            isSubscribed: user.isSubscribed,
+            isAdmin: user.isAdmin,
+          }
+        });
+      });
+    } catch (error) {
+      console.error("Error registering user:", error);
+      res.status(500).json({ message: "فشل التسجيل" });
+    }
+  });
+
+  // Login
+  app.post("/api/auth/login", (req, res, next) => {
+    passport.authenticate("local", (err: any, user: any, info: any) => {
+      if (err) {
+        return res.status(500).json({ message: "خطأ في تسجيل الدخول" });
+      }
+      if (!user) {
+        return res.status(401).json({ message: info?.message || "البريد الإلكتروني أو كلمة المرور غير صحيحة" });
+      }
+      req.login(user, (err) => {
+        if (err) {
+          return res.status(500).json({ message: "فشل تسجيل الدخول" });
+        }
+        res.json({
+          message: "تم تسجيل الدخول بنجاح",
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            isSubscribed: user.isSubscribed,
+            isAdmin: user.isAdmin,
+          }
+        });
+      });
+    })(req, res, next);
+  });
+
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ message: "فشل تسجيل الخروج" });
+      }
+      res.json({ message: "تم تسجيل الخروج بنجاح" });
+    });
+  });
+
+  // Get current user
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
-      res.json(user);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        isSubscribed: user.isSubscribed,
+        isAdmin: user.isAdmin,
+        subscriptionExpiresAt: user.subscriptionExpiresAt,
+      });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ message: "Failed to fetch user" });
@@ -50,7 +154,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get decrypted stream URL (requires subscription)
   app.get("/api/stream/:channelId/:quality", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { channelId, quality } = req.params;
 
       const user = await storage.getUser(userId);
@@ -198,7 +302,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create viewing session (for concurrent device enforcement)
   app.post("/api/session/create", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const { channelId } = req.body;
 
       const user = await storage.getUser(userId);
@@ -271,7 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get all users
   app.get("/api/admin/users", isAuthenticated, async (req: any, res) => {
     try {
-      const requestingUserId = req.user.claims.sub;
+      const requestingUserId = req.user.id;
       const requestingUser = await storage.getUser(requestingUserId);
 
       if (!requestingUser?.isAdmin) {
@@ -289,7 +393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Get subscription stats
   app.get("/api/admin/stats", isAuthenticated, async (req: any, res) => {
     try {
-      const requestingUserId = req.user.claims.sub;
+      const requestingUserId = req.user.id;
       const requestingUser = await storage.getUser(requestingUserId);
 
       if (!requestingUser?.isAdmin) {
@@ -307,7 +411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Update user subscription
   app.post("/api/admin/subscription", isAuthenticated, async (req: any, res) => {
     try {
-      const requestingUserId = req.user.claims.sub;
+      const requestingUserId = req.user.id;
       const requestingUser = await storage.getUser(requestingUserId);
 
       if (!requestingUser?.isAdmin) {
@@ -326,7 +430,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin: Update user admin status
   app.post("/api/admin/admin-status", isAuthenticated, async (req: any, res) => {
     try {
-      const requestingUserId = req.user.claims.sub;
+      const requestingUserId = req.user.id;
       const requestingUser = await storage.getUser(requestingUserId);
 
       if (!requestingUser?.isAdmin) {
