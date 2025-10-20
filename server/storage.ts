@@ -1,11 +1,17 @@
 // Reference: Replit Auth integration blueprint
 import {
   users,
+  categories,
+  channelGroups,
   channels,
   channelStreams,
   activeSessions,
   type User,
   type UpsertUser,
+  type Category,
+  type InsertCategory,
+  type ChannelGroup,
+  type InsertChannelGroup,
   type Channel,
   type InsertChannel,
   type ChannelStream,
@@ -32,8 +38,17 @@ export interface IStorage {
     inactiveUsers: number;
   }>;
   
+  // Category operations
+  getAllCategories(): Promise<Category[]>;
+  createCategory(category: InsertCategory): Promise<Category>;
+  
+  // Channel Group operations
+  getGroupsByCategory(categoryId: string): Promise<ChannelGroup[]>;
+  createChannelGroup(group: InsertChannelGroup): Promise<ChannelGroup>;
+  
   // Channel operations
   getAllChannels(): Promise<Channel[]>;
+  getChannelsByGroup(groupId: string): Promise<Channel[]>;
   getChannelStreams(channelId: string): Promise<ChannelStream[]>;
   createChannel(channel: InsertChannel): Promise<Channel>;
   createChannelStream(stream: InsertChannelStream): Promise<ChannelStream>;
@@ -140,9 +155,41 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
+  // Category operations
+  async getAllCategories(): Promise<Category[]> {
+    return await db.select().from(categories).orderBy(categories.displayOrder);
+  }
+
+  async createCategory(category: InsertCategory): Promise<Category> {
+    const [created] = await db.insert(categories).values(category).returning();
+    return created;
+  }
+
+  // Channel Group operations
+  async getGroupsByCategory(categoryId: string): Promise<ChannelGroup[]> {
+    return await db
+      .select()
+      .from(channelGroups)
+      .where(eq(channelGroups.categoryId, categoryId))
+      .orderBy(channelGroups.displayOrder);
+  }
+
+  async createChannelGroup(group: InsertChannelGroup): Promise<ChannelGroup> {
+    const [created] = await db.insert(channelGroups).values(group).returning();
+    return created;
+  }
+
   // Channel operations
   async getAllChannels(): Promise<Channel[]> {
     return await db.select().from(channels).orderBy(channels.displayOrder);
+  }
+
+  async getChannelsByGroup(groupId: string): Promise<Channel[]> {
+    return await db
+      .select()
+      .from(channels)
+      .where(eq(channels.groupId, groupId))
+      .orderBy(channels.displayOrder);
   }
 
   async getChannelStreams(channelId: string): Promise<ChannelStream[]> {

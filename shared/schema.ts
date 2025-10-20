@@ -42,10 +42,39 @@ export const users = pgTable("users", {
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
 
+// Categories table (أقسام القنوات)
+export const categories = pgTable("categories", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  displayOrder: integer("display_order").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type Category = typeof categories.$inferSelect;
+export type InsertCategory = typeof categories.$inferInsert;
+
+// Channel Groups table (مجموعات القنوات مثل "الجزيرة")
+export const channelGroups = pgTable("channel_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  categoryId: varchar("category_id")
+    .notNull()
+    .references(() => categories.id, { onDelete: "cascade" }),
+  logo: text("logo"), // URL or path to logo
+  displayOrder: integer("display_order").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type ChannelGroup = typeof channelGroups.$inferSelect;
+export type InsertChannelGroup = typeof channelGroups.$inferInsert;
+
 // Channels table
 export const channels = pgTable("channels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  groupId: varchar("group_id")
+    .notNull()
+    .references(() => channelGroups.id, { onDelete: "cascade" }),
   displayOrder: integer("display_order").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -64,8 +93,9 @@ export const channelStreams = pgTable("channel_streams", {
   channelId: varchar("channel_id")
     .notNull()
     .references(() => channels.id, { onDelete: "cascade" }),
-  quality: varchar("quality").notNull(), // FHD, HD, LOW
+  quality: varchar("quality").notNull(), // FHD, HD, LOW, or empty for single quality
   encryptedUrl: text("encrypted_url").notNull(),
+  backupEncryptedUrl: text("backup_encrypted_url"), // BK backup URL
   createdAt: timestamp("created_at").defaultNow(),
 });
 
