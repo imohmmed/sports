@@ -81,10 +81,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const decryptedUrl = decryptUrl(stream.encryptedUrl);
-      res.json({ url: decryptedUrl });
+      
+      // Return proxied URL instead of direct URL to avoid CORS and Mixed Content issues
+      const proxyUrl = `/api/proxy-stream?url=${encodeURIComponent(decryptedUrl)}`;
+      
+      // Prevent caching to ensure latest URL is always used
+      res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.setHeader("Pragma", "no-cache");
+      res.setHeader("Expires", "0");
+      
+      res.json({ url: proxyUrl });
     } catch (error) {
       console.error("Error fetching stream:", error);
       res.status(500).json({ message: "Failed to fetch stream" });
+    }
+  });
+
+  // Proxy endpoint for streaming content (handles CORS and Mixed Content)
+  app.get("/api/proxy-stream", isAuthenticated, async (req: any, res) => {
+    try {
+      const targetUrl = req.query.url as string;
+      
+      if (!targetUrl) {
+        return res.status(400).json({ message: "URL parameter required" });
+      }
+
+      // Fetch the content from the target URL
+      const response = await fetch(targetUrl);
+      
+      if (!response.ok) {
+        return res.status(response.status).json({ message: "Failed to fetch stream" });
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+
+      // Enable CORS
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+      res.setHeader("Access-Control-Allow-Headers", "Range, Content-Type");
+      res.setHeader("Access-Control-Expose-Headers", "Content-Length, Content-Range");
+      
+      // If it's an M3U8 playlist, rewrite URLs to go through proxy
+      if (contentType.includes("mpegurl") || contentType.includes("m3u8") || targetUrl.endsWith(".m3u8")) {
+        const text = await response.text();
+        const baseUrl = targetUrl.substring(0, targetUrl.lastIndexOf("/") + 1);
+        
+        // Rewrite relative URLs in M3U8 to go through our proxy
+        const proxiedContent = text.split("\n").map(line => {
+          // Skip comments and empty lines
+          if (line.startsWith("#") || !line.trim()) {
+            return line;
+          }
+          
+          // Check if line is a URL
+          if (line.includes("://") || line.endsWith(".m3u8") || line.endsWith(".ts")) {
+            const absoluteUrl = line.includes("://") ? line : baseUrl + line;
+            return `/api/proxy-stream?url=${encodeURIComponent(absoluteUrl)}`;
+          }
+          
+          return line;
+        }).join("\n");
+        
+        res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+        res.send(proxiedContent);
+      } else {
+        // For other content (video segments, etc.), stream as-is
+        res.setHeader("Content-Type", contentType);
+        
+        // Handle range requests for video streaming
+        if (req.headers.range && response.headers.get("accept-ranges")) {
+          res.setHeader("Accept-Ranges", "bytes");
+        }
+        
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+      }
+    } catch (error) {
+      console.error("Proxy error:", error);
+      res.status(500).json({ message: "Proxy failed" });
     }
   });
 
