@@ -135,11 +135,22 @@ export default function VideoPlayer({
   };
 
   const toggleFullscreen = () => {
+    const video = videoRef.current;
     const container = containerRef.current;
-    if (!container) return;
+    if (!video || !container) return;
 
+    // iOS Safari requires fullscreen on video element
+    if ((video as any).webkitEnterFullscreen) {
+      try {
+        (video as any).webkitEnterFullscreen();
+      } catch (e) {
+        console.log("iOS fullscreen error:", e);
+      }
+      return;
+    }
+
+    // Desktop browsers - fullscreen on container
     if (!document.fullscreenElement) {
-      // Try different fullscreen API methods for cross-browser compatibility
       if (container.requestFullscreen) {
         container.requestFullscreen().catch(e => console.log("Fullscreen error:", e));
       } else if ((container as any).webkitRequestFullscreen) {
