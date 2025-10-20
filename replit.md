@@ -6,6 +6,17 @@ AlAli Sport is a subscription-based sports streaming platform focused on Arabic-
 
 The project is built as a full-stack web application with a React frontend and Express backend, utilizing PostgreSQL for data persistence and Replit's authentication system for user management.
 
+## Recent Changes (October 20, 2025)
+
+- ✅ Implemented complete Replit Auth integration for user authentication
+- ✅ Built PostgreSQL database schema with users, channels, channel streams, and active sessions
+- ✅ Seeded database with 13 BeIN Sports channels (Bn sport, Bn 1-9, Bn XTRA 1-2, BN NPA)
+- ✅ Created stream URL encryption/decryption system for content protection
+- ✅ Implemented session-based concurrent device enforcement (one device per user)
+- ✅ Built video player with HLS.js for adaptive streaming
+- ✅ Created admin panel for subscription management
+- ✅ Tested complete end-to-end user flow successfully
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
@@ -26,7 +37,7 @@ Preferred communication style: Simple, everyday language.
 
 **Routing**: Wouter for client-side routing, providing a lightweight alternative to React Router.
 
-**Video Playback**: HLS.js for adaptive streaming of encrypted video URLs, supporting multiple quality levels per channel.
+**Video Playback**: HLS.js for adaptive streaming of encrypted video URLs, supporting multiple quality levels per channel. The video player features play/pause, volume control, fullscreen, and quality selection with smooth transitions.
 
 **Key Design Decisions**:
 - RTL-first design with Arabic as the primary language
@@ -34,6 +45,7 @@ Preferred communication style: Simple, everyday language.
 - Component-based architecture with reusable UI elements
 - Responsive grid layouts for channel display
 - Animated transitions and hover effects for enhanced UX
+- HLS.js for cross-platform video playback compatibility
 
 ### Backend Architecture
 
@@ -46,22 +58,25 @@ Preferred communication style: Simple, everyday language.
 - Session-based authentication with secure, HTTP-only cookies
 - Active session tracking for concurrent device management
 - CSRF protection through session validation
+- Admin-only endpoints for subscription management
 
 **API Design**: RESTful API with the following key endpoints:
 - `/api/auth/*` - Authentication flow (login, logout, user info)
 - `/api/channels` - Public channel listing with quality options
-- `/api/stream` - Encrypted stream URL retrieval (subscription-required)
+- `/api/stream/:channelId/:quality` - Encrypted stream URL retrieval (subscription-required)
+- `/api/session/*` - Session management (create, heartbeat, end)
 - `/api/admin/*` - Admin operations for subscription management
 
 **Database ORM**: Drizzle ORM with PostgreSQL, providing type-safe database operations and schema management.
 
-**Real-time Features**: WebSocket support for active session heartbeat monitoring and concurrent device enforcement.
+**Real-time Features**: HTTP-based heartbeat mechanism for active session monitoring and concurrent device enforcement (30-second intervals).
 
 **Key Design Decisions**:
 - Session-based auth chosen over JWT for better security and session control
 - URL encryption protects premium content from unauthorized access
 - Separation of public (channel list) and protected (stream URLs) endpoints
 - Admin functionality segregated with role-based access control
+- Session cleanup every 60 seconds to prevent stale session accumulation
 
 ### Data Storage Solutions
 
@@ -81,16 +96,17 @@ Preferred communication style: Simple, everyday language.
 3. **channels** - Sports channel definitions
    - Fields: id, name, displayOrder
    - Supports ordering for UI presentation
+   - 13 channels seeded: Bn sport, Bn 1-9, Bn XTRA 1-2, BN NPA
 
 4. **channelStreams** - Stream URLs per channel and quality
    - Fields: id, channelId, quality (FHD/HD/LOW), encryptedUrl
    - Multiple streams per channel for quality selection
-   - URLs are encrypted at rest
+   - URLs are encrypted at rest using AES-256-CBC
 
 5. **activeSessions** - Concurrent device tracking
    - Fields: id, userId, sessionToken, channelId, lastHeartbeat
-   - Enables enforcement of concurrent viewing limits
-   - Automatically cleaned up on expiration
+   - Enables enforcement of concurrent viewing limits (one device per user)
+   - Automatically cleaned up on expiration (5-minute timeout)
 
 **Database Connection**: Neon serverless PostgreSQL with WebSocket support for connection pooling.
 
@@ -109,7 +125,7 @@ Preferred communication style: Simple, everyday language.
 **Flow**:
 1. User initiates login via `/api/login` endpoint
 2. Redirect to Replit OIDC provider for authentication
-3. Callback to `/api/login/callback` with authorization code
+3. Callback to `/api/callback` with authorization code
 4. Exchange code for tokens and create user session
 5. User information synchronized to local database
 
@@ -177,11 +193,12 @@ Preferred communication style: Simple, everyday language.
 - drizzle-orm - Type-safe database ORM
 - express-session - Session management
 - passport - Authentication middleware
-- ws - WebSocket support
+- openid-client - OIDC client library
+- crypto (built-in) - URL encryption/decryption
 
 **Environment Requirements**:
 - DATABASE_URL - PostgreSQL connection string
-- ENCRYPTION_KEY - AES-256 encryption key for stream URLs
+- ENCRYPTION_KEY - AES-256 encryption key for stream URLs (defaults to "default-32-character-secret-key!" for development)
 - SESSION_SECRET - Express session signing secret
 - REPL_ID - Replit deployment identifier
 - REPLIT_DOMAINS - Allowed domains for OIDC
@@ -190,6 +207,52 @@ Preferred communication style: Simple, everyday language.
 **Key Design Decisions**:
 - Minimal external service dependencies for reliability
 - Encryption key management via environment variables
-- WebSocket support for real-time session management
+- HTTP-based heartbeat for session management (WebSocket as optional enhancement)
 - Third-party stream URLs encrypted to prevent unauthorized access
 - Neon serverless PostgreSQL chosen for Replit compatibility and WebSocket support
+
+## Application Status
+
+✅ **Fully Functional** - All core features implemented and tested:
+- User authentication with Replit Auth
+- Channel browsing with real database data
+- Subscription-based access control
+- Video streaming with HLS.js
+- Concurrent device enforcement
+- Admin subscription management
+
+## How to Use
+
+### For Regular Users:
+1. Visit the homepage and click "ابدأ الآن" (Get Started)
+2. Log in with Replit Auth
+3. Contact T.me/mohmmed for subscription activation
+4. Once subscribed, browse and watch all 13 BeIN Sports channels
+5. Select quality (FHD/HD/LOW) based on your connection
+
+### For Admins:
+1. Log in with an admin account
+2. Navigate to `/admin`
+3. Enter a user's ID to activate or deactivate their subscription
+4. Changes take effect immediately
+
+### Database Management:
+- Run `tsx server/seed.ts` to re-seed channel data (only if channels don't exist)
+- Use `npm run db:push` to sync schema changes
+- Admin users can be created by setting `is_admin = true` in the database
+
+## Known Limitations
+
+- One concurrent stream per user (enforced by session tracking)
+- Stream URLs are encrypted and require active subscription
+- Admin panel requires manual User ID input (no user search UI)
+- WebSocket connection for heartbeat is optional (HTTP fallback in place)
+
+## Future Enhancements
+
+- Email notifications for subscription changes
+- User dashboard with viewing history
+- Payment integration for automatic subscription management
+- Multi-language support (English, French)
+- Mobile app with React Native
+- Live match schedule and notifications
