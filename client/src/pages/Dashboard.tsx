@@ -1,151 +1,87 @@
-import { useState } from "react";
+// Reference: Replit Auth integration blueprint - page level unauthorized handling
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import type { User } from "@shared/schema";
 import Header from "@/components/Header";
 import SubscriptionBanner from "@/components/SubscriptionBanner";
 import ChannelGrid from "@/components/ChannelGrid";
 import Footer from "@/components/Footer";
 
-const mockChannels = [
-  {
-    id: '1',
-    name: 'Bn Sport 1',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Bn Sport 2',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Bn Sport 3',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '4',
-    name: 'Bn Sport 4',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '5',
-    name: 'Bn Sport 5',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '6',
-    name: 'Bn Sport 6',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '7',
-    name: 'Bn Sport 7',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '8',
-    name: 'Bn Sport 8',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true }
-    ]
-  },
-  {
-    id: '9',
-    name: 'Bn Sport 9',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true }
-    ]
-  },
-  {
-    id: '10',
-    name: 'Bn XTRA 1',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true }
-    ]
-  },
-  {
-    id: '11',
-    name: 'Bn XTRA 2',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true }
-    ]
-  },
-  {
-    id: '12',
-    name: 'BN NPA',
-    qualities: [
-      { quality: 'HD', available: true }
-    ]
-  },
-];
+interface ChannelWithQualities {
+  id: string;
+  name: string;
+  qualities: Array<{ quality: string; available: boolean }>;
+}
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const { toast } = useToast();
+  const { user, isLoading, isAuthenticated } = useAuth();
+  const typedUser = user as User | undefined;
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      toast({
+        title: "Unauthorized",
+        description: "You are logged out. Logging in again...",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/api/login";
+      }, 500);
+      return;
+    }
+  }, [isAuthenticated, isLoading, toast]);
+
+  const { data: channels = [], isLoading: channelsLoading } = useQuery<ChannelWithQualities[]>({
+    queryKey: ["/api/channels"],
+    enabled: isAuthenticated,
+  });
 
   const handleChannelClick = (channelId: string) => {
-    if (isSubscribed) {
+    if (typedUser?.isSubscribed) {
       setLocation(`/player/${channelId}`);
-    } else {
-      console.log('Need subscription to watch');
     }
   };
 
   const handleLogout = () => {
-    console.log('Logout clicked');
-    setLocation('/');
+    window.location.href = "/api/logout";
   };
+
+  if (isLoading || channelsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header 
         isAuthenticated={true}
-        userEmail="user@example.com"
-        isSubscribed={isSubscribed}
+        userEmail={typedUser?.email || ""}
+        isSubscribed={typedUser?.isSubscribed || false}
         onLogout={handleLogout}
       />
       
       <main className="flex-1">
-        {!isSubscribed && (
+        {!typedUser?.isSubscribed && (
           <div className="container mx-auto px-4 pt-6">
             <SubscriptionBanner />
           </div>
         )}
         
         <ChannelGrid 
-          channels={mockChannels}
-          locked={!isSubscribed}
+          channels={channels}
+          locked={!typedUser?.isSubscribed}
           onChannelClick={handleChannelClick}
         />
       </main>

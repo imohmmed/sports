@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Hls from "hls.js";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Play, Maximize, Volume2 } from "lucide-react";
+import { Play, Pause, Maximize, Volume2, VolumeX } from "lucide-react";
 
 interface QualityOption {
   quality: string;
@@ -21,40 +21,193 @@ export default function VideoPlayer({
   currentQuality = qualities[0]?.quality,
   onQualityChange 
 }: VideoPlayerProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
   const [selectedQuality, setSelectedQuality] = useState(currentQuality);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const currentStream = qualities.find(q => q.quality === selectedQuality);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !currentStream?.url) return;
+
+    setIsLoading(true);
+
+    // Cleanup previous HLS instance
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+      });
+
+      hlsRef.current = hls;
+      hls.loadSource(currentStream.url);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setIsLoading(false);
+        video.play().catch(e => console.log("Autoplay prevented:", e));
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        console.error("HLS error:", data);
+        if (data.fatal) {
+          setIsLoading(false);
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              console.log("Network error, attempting recovery...");
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              console.log("Media error, attempting recovery...");
+              hls.recoverMediaError();
+              break;
+            default:
+              console.log("Fatal error, destroying HLS instance");
+              hls.destroy();
+              break;
+          }
+        }
+      });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      // Native HLS support (Safari)
+      video.src = currentStream.url;
+      video.addEventListener("loadedmetadata", () => {
+        setIsLoading(false);
+        video.play().catch(e => console.log("Autoplay prevented:", e));
+      });
+    }
+
+    return () => {
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+  }, [currentStream?.url]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
+    video.addEventListener("play", handlePlay);
+    video.addEventListener("pause", handlePause);
+
+    return () => {
+      video.removeEventListener("play", handlePlay);
+      video.removeEventListener("pause", handlePause);
+    };
+  }, []);
 
   const handleQualityClick = (quality: string) => {
     setSelectedQuality(quality);
     onQualityChange?.(quality);
-    console.log(`Quality changed to: ${quality}`);
+  };
+
+  const togglePlay = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (isPlaying) {
+      video.pause();
+    } else {
+      video.play().catch(e => console.log("Play error:", e));
+    }
+  };
+
+  const toggleMute = () => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !isMuted;
+    setIsMuted(!isMuted);
+  };
+
+  const toggleFullscreen = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!document.fullscreenElement) {
+      video.requestFullscreen().catch(e => console.log("Fullscreen error:", e));
+    } else {
+      document.exitFullscreen();
+    }
   };
 
   return (
     <div className="w-full max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-10 duration-700" data-testid="container-video-player">
       <div className="bg-card rounded-lg overflow-hidden border shadow-2xl transition-all duration-500 hover:shadow-primary/20">
-        <div className="relative aspect-video bg-black flex items-center justify-center group">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-transparent animate-pulse" />
-          <div className="relative z-10 text-center animate-in zoom-in duration-700 delay-300">
-            <div className="rounded-full bg-primary/20 backdrop-blur-sm p-6 mb-4 inline-block transition-all duration-500 hover:scale-110 hover:bg-primary/30 cursor-pointer">
-              <Play className="h-16 w-16 text-white transition-transform duration-300 hover:scale-110" />
+        <div className="relative aspect-video bg-black group">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center z-20">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
             </div>
-            <p className="text-white text-lg font-medium transition-all duration-300">{channelName}</p>
-            <p className="text-white/70 text-sm mt-2 transition-all duration-300">البث المباشر - {selectedQuality}</p>
-          </div>
+          )}
+          
+          <video
+            ref={videoRef}
+            className="w-full h-full"
+            controls={false}
+            playsInline
+            data-testid="video-player"
+          />
           
           <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-500">
             <div className="flex gap-2">
-              <Button size="icon" variant="secondary" className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110">
-                <Play className="h-4 w-4 transition-transform duration-300" />
+              <Button 
+                size="icon" 
+                variant="secondary" 
+                className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110"
+                onClick={togglePlay}
+                data-testid={`button-${isPlaying ? 'pause' : 'play'}`}
+              >
+                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </Button>
-              <Button size="icon" variant="secondary" className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110">
-                <Volume2 className="h-4 w-4 transition-transform duration-300" />
+              <Button 
+                size="icon" 
+                variant="secondary" 
+                className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110"
+                onClick={toggleMute}
+                data-testid={`button-${isMuted ? 'unmute' : 'mute'}`}
+              >
+                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
               </Button>
             </div>
-            <Button size="icon" variant="secondary" className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110">
-              <Maximize className="h-4 w-4 transition-transform duration-300" />
+            <Button 
+              size="icon" 
+              variant="secondary" 
+              className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110"
+              onClick={toggleFullscreen}
+              data-testid="button-fullscreen"
+            >
+              <Maximize className="h-4 w-4" />
             </Button>
           </div>
+
+          {!isPlaying && !isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center z-10">
+              <div className="text-center animate-in zoom-in duration-700">
+                <div 
+                  className="rounded-full bg-primary/20 backdrop-blur-sm p-6 mb-4 inline-block transition-all duration-500 hover:scale-110 hover:bg-primary/30 cursor-pointer"
+                  onClick={togglePlay}
+                >
+                  <Play className="h-16 w-16 text-white transition-transform duration-300 hover:scale-110" />
+                </div>
+                <p className="text-white text-lg font-medium">{channelName}</p>
+                <p className="text-white/70 text-sm mt-2">البث المباشر - {selectedQuality}</p>
+              </div>
+            </div>
+          )}
         </div>
         
         <div className="p-4 bg-card transition-all duration-500">

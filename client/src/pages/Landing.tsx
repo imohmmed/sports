@@ -1,78 +1,37 @@
-import { useLocation } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import ChannelGrid from "@/components/ChannelGrid";
 import Footer from "@/components/Footer";
 
-const mockChannels = [
-  {
-    id: '1',
-    name: 'Bn Sport 1',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Bn Sport 2',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '3',
-    name: 'Bn Sport 3',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '4',
-    name: 'Bn Sport 4',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '5',
-    name: 'Bn Sport 5',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-  {
-    id: '6',
-    name: 'Bn Sport 6',
-    qualities: [
-      { quality: 'FHD', available: true },
-      { quality: 'HD', available: true },
-      { quality: 'LOW', available: true }
-    ]
-  },
-];
+interface ChannelWithQualities {
+  id: string;
+  name: string;
+  qualities: Array<{ quality: string; available: boolean }>;
+}
 
 export default function Landing() {
-  const [, setLocation] = useLocation();
+  const { data: channels = [] } = useQuery<ChannelWithQualities[]>({
+    queryKey: ["/api/channels"],
+  });
+
+  const handleGetStarted = () => {
+    window.location.href = "/api/login";
+  };
+
+  const handleChannelClick = () => {
+    window.location.href = "/api/login";
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Header />
       <main className="flex-1">
-        <Hero onGetStarted={() => setLocation('/auth')} />
+        <Hero onGetStarted={handleGetStarted} />
         <ChannelGrid 
-          channels={mockChannels} 
+          channels={channels} 
           locked={true}
-          onChannelClick={() => setLocation('/auth')}
+          onChannelClick={handleChannelClick}
         />
       </main>
       <Footer />

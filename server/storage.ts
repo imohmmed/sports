@@ -121,7 +121,7 @@ export class DatabaseStorage implements IStorage {
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     await db
       .delete(activeSessions)
-      .where(and(activeSessions.lastHeartbeat, lt(activeSessions.lastHeartbeat, fiveMinutesAgo)));
+      .where(lt(activeSessions.lastHeartbeat, fiveMinutesAgo));
   }
 }
 
