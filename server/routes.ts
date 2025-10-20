@@ -134,6 +134,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Get all users
+  app.get("/api/admin/users", isAuthenticated, async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const requestingUser = await storage.getUser(requestingUserId);
+
+      if (!requestingUser?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Admin: Get subscription stats
+  app.get("/api/admin/stats", isAuthenticated, async (req: any, res) => {
+    try {
+      const requestingUserId = req.user.claims.sub;
+      const requestingUser = await storage.getUser(requestingUserId);
+
+      if (!requestingUser?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const stats = await storage.getSubscriptionStats();
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
   // Admin: Update user subscription
   app.post("/api/admin/subscription", isAuthenticated, async (req: any, res) => {
     try {
@@ -144,8 +180,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const { userId, isSubscribed } = req.body;
-      await storage.updateUserSubscription(userId, isSubscribed);
+      const { userId, isSubscribed, durationMonths } = req.body;
+      await storage.updateUserSubscription(userId, isSubscribed, durationMonths);
       res.json({ success: true });
     } catch (error) {
       console.error("Error updating subscription:", error);

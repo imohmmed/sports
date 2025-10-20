@@ -20,7 +20,14 @@ export interface IStorage {
   // User operations - Required for Replit Auth
   getUser(id: string): Promise<User | undefined>;
   upsertUser(user: UpsertUser): Promise<User>;
-  updateUserSubscription(userId: string, isSubscribed: boolean): Promise<void>;
+  updateUserSubscription(userId: string, isSubscribed: boolean, durationMonths?: number): Promise<void>;
+  getAllUsers(): Promise<User[]>;
+  getSubscriptionStats(): Promise<{
+    totalUsers: number;
+    activeSubscribers: number;
+    expiredSubscribers: number;
+    inactiveUsers: number;
+  }>;
   
   // Channel operations
   getAllChannels(): Promise<Channel[]>;
@@ -58,11 +65,59 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
-  async updateUserSubscription(userId: string, isSubscribed: boolean): Promise<void> {
+  async updateUserSubscription(
+    userId: string, 
+    isSubscribed: boolean, 
+    durationMonths?: number
+  ): Promise<void> {
+    const updateData: any = { 
+      isSubscribed, 
+      updatedAt: new Date() 
+    };
+    
+    if (isSubscribed && durationMonths) {
+      const expiresAt = new Date();
+      expiresAt.setMonth(expiresAt.getMonth() + durationMonths);
+      updateData.subscriptionExpiresAt = expiresAt;
+    } else if (!isSubscribed) {
+      updateData.subscriptionExpiresAt = null;
+    }
+    
     await db
       .update(users)
-      .set({ isSubscribed, updatedAt: new Date() })
+      .set(updateData)
       .where(eq(users.id, userId));
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users).orderBy(users.createdAt);
+  }
+
+  async getSubscriptionStats(): Promise<{
+    totalUsers: number;
+    activeSubscribers: number;
+    expiredSubscribers: number;
+    inactiveUsers: number;
+  }> {
+    const allUsers = await db.select().from(users);
+    const now = new Date();
+    
+    const activeSubscribers = allUsers.filter(
+      u => u.isSubscribed && (!u.subscriptionExpiresAt || u.subscriptionExpiresAt > now)
+    ).length;
+    
+    const expiredSubscribers = allUsers.filter(
+      u => u.isSubscribed && u.subscriptionExpiresAt && u.subscriptionExpiresAt <= now
+    ).length;
+    
+    const inactiveUsers = allUsers.filter(u => !u.isSubscribed).length;
+    
+    return {
+      totalUsers: allUsers.length,
+      activeSubscribers,
+      expiredSubscribers,
+      inactiveUsers,
+    };
   }
 
   // Channel operations
