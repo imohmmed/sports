@@ -22,6 +22,7 @@ export default function VideoPlayer({
   onQualityChange 
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [selectedQuality, setSelectedQuality] = useState(currentQuality);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -134,20 +135,37 @@ export default function VideoPlayer({
   };
 
   const toggleFullscreen = () => {
-    const video = videoRef.current;
-    if (!video) return;
+    const container = containerRef.current;
+    if (!container) return;
 
     if (!document.fullscreenElement) {
-      video.requestFullscreen().catch(e => console.log("Fullscreen error:", e));
+      // Try different fullscreen API methods for cross-browser compatibility
+      if (container.requestFullscreen) {
+        container.requestFullscreen().catch(e => console.log("Fullscreen error:", e));
+      } else if ((container as any).webkitRequestFullscreen) {
+        (container as any).webkitRequestFullscreen();
+      } else if ((container as any).mozRequestFullScreen) {
+        (container as any).mozRequestFullScreen();
+      } else if ((container as any).msRequestFullscreen) {
+        (container as any).msRequestFullscreen();
+      }
     } else {
-      document.exitFullscreen();
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if ((document as any).webkitExitFullscreen) {
+        (document as any).webkitExitFullscreen();
+      } else if ((document as any).mozCancelFullScreen) {
+        (document as any).mozCancelFullScreen();
+      } else if ((document as any).msExitFullscreen) {
+        (document as any).msExitFullscreen();
+      }
     }
   };
 
   return (
     <div className="w-full max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-10 duration-700" data-testid="container-video-player">
       <div className="bg-card rounded-lg overflow-hidden border shadow-2xl transition-all duration-500 hover:shadow-primary/20">
-        <div className="relative aspect-video bg-black group">
+        <div ref={containerRef} className="relative aspect-video bg-black group">
           {isLoading && (
             <div className="absolute inset-0 flex items-center justify-center z-20">
               <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
