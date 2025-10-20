@@ -58,6 +58,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Subscription required" });
       }
 
+      // Check if subscription has expired
+      if (user.subscriptionExpiresAt) {
+        const now = new Date();
+        const expiresAt = new Date(user.subscriptionExpiresAt);
+        
+        if (expiresAt <= now) {
+          // Auto-deactivate expired subscription
+          await storage.updateUserSubscription(userId, false);
+          return res.status(403).json({ 
+            message: "Subscription expired",
+            expiredAt: user.subscriptionExpiresAt 
+          });
+        }
+      }
+
       const streams = await storage.getChannelStreams(channelId);
       const stream = streams.find((s) => s.quality === quality);
 
@@ -82,6 +97,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await storage.getUser(userId);
       if (!user?.isSubscribed) {
         return res.status(403).json({ message: "Subscription required" });
+      }
+
+      // Check if subscription has expired
+      if (user.subscriptionExpiresAt) {
+        const now = new Date();
+        const expiresAt = new Date(user.subscriptionExpiresAt);
+        
+        if (expiresAt <= now) {
+          await storage.updateUserSubscription(userId, false);
+          return res.status(403).json({ 
+            message: "Subscription expired",
+            expiredAt: user.subscriptionExpiresAt 
+          });
+        }
       }
 
       // Check for active sessions
