@@ -57,10 +57,10 @@ export default function Home() {
     if (!typedUser) {
       toast({
         title: "تسجيل الدخول مطلوب 🔐",
-        description: "يرجى تسجيل الدخول أولاً للمشاهدة",
+        description: "يرجى تسجيل الدخول أولاً للمشاهدة. اضغط على زر تسجيل الدخول أعلى الصفحة",
         variant: "destructive",
+        duration: 5000,
       });
-      setTimeout(() => setLocation("/login"), 800);
       return;
     }
 
@@ -69,6 +69,7 @@ export default function Home() {
         title: "اشتراك مطلوب ⭐",
         description: "للمشاهدة يرجى التواصل مع @mohmmed على تيليجرام لتفعيل الاشتراك",
         variant: "destructive",
+        duration: 5000,
       });
       return;
     }
