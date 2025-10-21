@@ -53,26 +53,9 @@ export default function ChannelCard({ name, logoUrl, qualities, locked, onClick 
         )}
         
         <div className="absolute bottom-0 right-0 left-0 p-4 transition-all duration-500 group-hover:pb-6">
-          <h3 className="text-white font-bold text-lg mb-2 transition-all duration-300 group-hover:text-primary" data-testid={`text-channel-name-${name.replace(/\s+/g, '-')}`}>
+          <h3 className="text-white font-bold text-lg transition-all duration-300 group-hover:text-primary" data-testid={`text-channel-name-${name.replace(/\s+/g, '-')}`}>
             {name}
           </h3>
-          <div className="flex gap-2 flex-wrap">
-            {qualities.map((q, index) => (
-              <Badge 
-                key={q.quality}
-                variant={q.available ? "default" : "secondary"}
-                className={`text-xs transition-all duration-300 hover:scale-110 animate-in slide-in-from-bottom-3 ${
-                  q.quality === 'FHD' ? 'bg-green-600 hover:bg-green-700 hover:shadow-lg hover:shadow-green-500/50' :
-                  q.quality === 'HD' ? 'bg-blue-600 hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/50' :
-                  'bg-gray-600 hover:bg-gray-700 hover:shadow-lg hover:shadow-gray-500/50'
-                }`}
-                style={{ animationDelay: `${index * 100}ms` }}
-                data-testid={`badge-quality-${q.quality}`}
-              >
-                {q.quality}
-              </Badge>
-            ))}
-          </div>
         </div>
       </div>
     </Card>
