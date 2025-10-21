@@ -21,7 +21,7 @@ export default function ChannelGrid({ channels, locked, onChannelClick }: Channe
   return (
     <div className="container mx-auto px-4 py-8">
       <div 
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"
         data-testid="grid-channels"
       >
         {channels.map((channel, index) => {

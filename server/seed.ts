@@ -5,13 +5,13 @@ import { encryptUrl } from "./encryption";
 // Channel data from the original request
 const channelData = [
   {
-    name: "Bn sport",
+    name: "BeIN Sport",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516713.m3u8" },
     ],
   },
   {
-    name: "Bn 1",
+    name: "BeIN 1",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516714.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516725.m3u8" },
@@ -19,7 +19,7 @@ const channelData = [
     ],
   },
   {
-    name: "Bn 2",
+    name: "BeIN 2",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516715.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516726.m3u8" },
@@ -27,7 +27,7 @@ const channelData = [
     ],
   },
   {
-    name: "Bn 3",
+    name: "BeIN 3",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516716.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516727.m3u8" },
@@ -35,7 +35,7 @@ const channelData = [
     ],
   },
   {
-    name: "Bn 4",
+    name: "BeIN 4",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516717.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516728.m3u8" },
@@ -43,7 +43,7 @@ const channelData = [
     ],
   },
   {
-    name: "Bn 5",
+    name: "BeIN 5",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516718.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516729.m3u8" },
@@ -51,7 +51,7 @@ const channelData = [
     ],
   },
   {
-    name: "Bn 6",
+    name: "BeIN 6",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516719.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516730.m3u8" },
@@ -59,7 +59,7 @@ const channelData = [
     ],
   },
   {
-    name: "Bn 7",
+    name: "BeIN 7",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516720.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516731.m3u8" },
@@ -67,35 +67,35 @@ const channelData = [
     ],
   },
   {
-    name: "Bn 8",
+    name: "BeIN 8",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516721.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516732.m3u8" },
     ],
   },
   {
-    name: "Bn 9",
+    name: "BeIN 9",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516722.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516733.m3u8" },
     ],
   },
   {
-    name: "Bn XTRA 1",
+    name: "BeIN XTRA 1",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516723.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516734.m3u8" },
     ],
   },
   {
-    name: "Bn XTRA 2",
+    name: "BeIN XTRA 2",
     streams: [
       { quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516724.m3u8" },
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516735.m3u8" },
     ],
   },
   {
-    name: "BN NPA",
+    name: "BeIN NBA",
     streams: [
       { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516736.m3u8" },
     ],
