@@ -130,11 +130,16 @@ The frontend is a **pure client-side application** with:
   - URL hash validation for all token types (prevents tampering)
 - **LIVE BROADCAST MODE**: Video player configured for live streaming:
   - Native video controls disabled (no seek bar or timeline)
-  - Seeking prevented - any attempt returns to live edge
-  - Low-latency HLS configuration (3s sync duration)
+  - Seeking prevented with 0.75s threshold - any attempt returns to live edge
+  - Low-latency HLS configuration (segment-based: liveSyncDurationCount=3, liveMaxLatencyDurationCount=10)
+  - Shared jumpToLiveEdge function for both HLS.js and Safari native HLS
   - "LIVE" badge with animated indicator
   - Right-click context menu disabled
-  - Picture-in-picture disabled for live broadcasts
+  - Picture-in-picture and remote playback disabled for live broadcasts
+  - Cross-browser support: HLS.js for non-Safari, native HLS for Safari with proper cleanup
+  - Touch device support: tap backdrop/video to toggle controls, tap video to play/pause
+  - Dynamic hlsRef reading in seeking handler for accurate live positioning after quality/server changes
+  - Safari event listener cleanup to prevent memory leaks
 - **KNOWN LIMITATIONS**:
   - Tokens can be replayed across devices during 15-minute validity (no session binding)
   - No rate limiting on `/api/secure-stream` endpoint
