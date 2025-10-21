@@ -149,10 +149,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         upstreamHeaders['If-Modified-Since'] = req.headers['if-modified-since'] as string;
       }
 
+      // Setup abort controller for timeout and client disconnect
+      const abortController = new AbortController();
+      const fetchTimeout = setTimeout(() => abortController.abort(), 30000); // 30s timeout
+      
+      req.on('close', () => {
+        clearTimeout(fetchTimeout);
+        abortController.abort();
+      });
+
       // Fetch and proxy the stream
       const response = await fetch(streamUrl, {
         headers: upstreamHeaders,
+        signal: abortController.signal,
+      }).catch((error) => {
+        clearTimeout(fetchTimeout);
+        if (error.name === 'AbortError') {
+          console.error('[Secure Stream] Request aborted (timeout or client disconnect)');
+        }
+        throw error;
       });
+
+      clearTimeout(fetchTimeout);
+
+      // Handle 304 Not Modified correctly
+      if (response.status === 304) {
+        res.status(304);
+        if (response.headers.get("etag")) {
+          res.setHeader("ETag", response.headers.get("etag")!);
+        }
+        if (response.headers.get("last-modified")) {
+          res.setHeader("Last-Modified", response.headers.get("last-modified")!);
+        }
+        return res.end();
+      }
 
       if (!response.ok) {
         console.error(`[Secure Stream] Failed: ${response.status} ${response.statusText}`);
@@ -215,9 +245,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return line;
           }
           
-          // Handle segment URLs (.ts, .m3u8, .m4s, .mp4, .aac, etc.)
+          // Handle segment URLs (.ts, .m3u8, .m4s, .mp4, .aac, etc.) including query strings
           const segmentExtensions = [".ts", ".m3u8", ".m4s", ".mp4", ".aac", ".vtt"];
-          const isSegment = segmentExtensions.some(ext => trimmed.endsWith(ext)) || 
+          const hasSegmentExtension = segmentExtensions.some(ext => {
+            const urlWithoutQuery = trimmed.split('?')[0];
+            return urlWithoutQuery.endsWith(ext);
+          });
+          const isSegment = hasSegmentExtension || 
                            trimmed.includes("://") || 
                            trimmed.startsWith("/");
           
@@ -254,22 +288,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           res.setHeader("Last-Modified", response.headers.get("last-modified")!);
         }
         
-        // Stream response body directly without buffering
+        // Stream response body directly with proper backpressure handling
         if (response.body) {
           const reader = response.body.getReader();
+          
+          // Handle client disconnect during streaming
+          req.on('close', () => {
+            reader.cancel().catch(() => {});
+          });
           
           try {
             while (true) {
               const { done, value } = await reader.read();
               if (done) break;
-              res.write(value);
+              
+              // Check if response is still writable
+              if (!res.writable) {
+                reader.cancel();
+                break;
+              }
+              
+              // Write with backpressure handling
+              if (!res.write(value)) {
+                // Wait for drain event before continuing
+                await new Promise((resolve) => res.once('drain', resolve));
+              }
             }
             res.end();
-          } catch (error) {
-            console.error("[Secure Stream] Streaming error:", error);
+          } catch (error: any) {
+            console.error("[Secure Stream] Streaming error:", error.message);
             reader.cancel();
             if (!res.headersSent) {
               res.status(500).json({ message: "Stream error" });
+            } else if (res.writable) {
+              res.end();
             }
           }
         } else {
