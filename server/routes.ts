@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { decryptUrl } from "./encryption";
+import { generateStreamToken, verifyStreamToken } from "./stream-token";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all channels (public)
@@ -43,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get decrypted stream URL (public - no authentication)
+  // Get signed stream URL with JWT token for security
   app.get("/api/stream/:channelId/:quality", async (req, res) => {
     try {
       const { channelId, quality } = req.params;
@@ -60,10 +61,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const decryptedUrl = decryptUrl(stream.encryptedUrl);
-      res.json({ url: `/api/proxy-stream?url=${encodeURIComponent(decryptedUrl)}` });
+      
+      // Generate JWT token with 15-minute expiry
+      const token = generateStreamToken(decryptedUrl, channelId, quality, serverName);
+      
+      // Return secure URL with token
+      res.json({ url: `/api/secure-stream?token=${token}` });
     } catch (error) {
       console.error("Error fetching stream:", error);
       res.status(500).json({ message: "Failed to fetch stream" });
+    }
+  });
+
+  // Secure stream endpoint that validates JWT token
+  app.get("/api/secure-stream", async (req, res) => {
+    try {
+      const token = req.query.token as string;
+      
+      if (!token) {
+        return res.status(401).json({ message: "Missing authentication token" });
+      }
+
+      // Verify and decode token
+      const payload = verifyStreamToken(token);
+      
+      if (!payload) {
+        return res.status(401).json({ message: "Invalid or expired token" });
+      }
+
+      const { url: streamUrl } = payload;
+
+      console.log(`[Secure Stream] Validated token for channel ${payload.channelId}, quality ${payload.quality}`);
+      console.log(`[Secure Stream] Fetching: ${streamUrl}`);
+
+      // Fetch and proxy the stream
+      const response = await fetch(streamUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Referer': 'http://tecflix.vip',
+        },
+      });
+
+      if (!response.ok) {
+        console.error(`[Secure Stream] Failed: ${response.status} ${response.statusText}`);
+        return res.status(response.status).json({ 
+          message: `Stream unavailable: ${response.statusText}` 
+        });
+      }
+
+      const contentType = response.headers.get("content-type") || "";
+
+      // Handle M3U8 playlists
+      if (contentType.includes("mpegurl") || contentType.includes("m3u8") || streamUrl.endsWith(".m3u8")) {
+        const text = await response.text();
+        
+        if (!text || text.trim().length === 0 || !text.includes("#EXTM3U")) {
+          console.error("[Secure Stream] Invalid M3U8 content");
+          return res.status(500).json({ message: "Invalid stream format" });
+        }
+        
+        const urlObj = new URL(streamUrl);
+        const baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf("/") + 1);
+        const origin = `${urlObj.protocol}//${urlObj.host}`;
+        
+        // Rewrite URLs in M3U8 to use secure streaming with token
+        const proxiedContent = text.split("\n").map(line => {
+          const trimmed = line.trim();
+          
+          if (trimmed.startsWith("#") || !trimmed) {
+            return line;
+          }
+          
+          let absoluteUrl = "";
+          
+          if (trimmed.includes("://")) {
+            absoluteUrl = trimmed;
+          } else if (trimmed.startsWith("/")) {
+            absoluteUrl = origin + trimmed;
+          } else if (trimmed.endsWith(".m3u8") || trimmed.endsWith(".ts")) {
+            absoluteUrl = baseUrl + trimmed;
+          } else {
+            return line;
+          }
+          
+          // Generate new token for nested resources
+          const nestedToken = generateStreamToken(absoluteUrl, payload.channelId, payload.quality, payload.server);
+          return `/api/secure-stream?token=${nestedToken}`;
+        }).join("\n");
+        
+        res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
+        res.setHeader("Cache-Control", "no-cache");
+        res.send(proxiedContent);
+      } else {
+        // Stream video segments directly
+        res.setHeader("Content-Type", contentType);
+        res.setHeader("Cache-Control", "public, max-age=31536000");
+        
+        if (req.headers.range && response.headers.get("accept-ranges")) {
+          res.setHeader("Accept-Ranges", "bytes");
+        }
+        
+        const buffer = await response.arrayBuffer();
+        res.send(Buffer.from(buffer));
+      }
+    } catch (error: any) {
+      console.error("[Secure Stream] Error:", error.message || error);
+      res.status(500).json({ message: "Stream error", error: error.message });
     }
   });
 
