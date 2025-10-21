@@ -45,6 +45,7 @@ export type User = typeof users.$inferSelect;
 export const channels = pgTable("channels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  category: varchar("category").notNull().default("sports"), // "sports" or "news"
   displayOrder: integer("display_order").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -63,7 +64,8 @@ export const channelStreams = pgTable("channel_streams", {
   channelId: varchar("channel_id")
     .notNull()
     .references(() => channels.id, { onDelete: "cascade" }),
-  quality: varchar("quality").notNull(), // FHD, HD, LOW
+  quality: varchar("quality").notNull(), // FHD, HD, LOW, or server name for single quality channels
+  serverName: varchar("server_name").default("main"), // "main" or "BK"
   encryptedUrl: text("encrypted_url").notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
