@@ -2,6 +2,24 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+// Security: Validate critical environment variables at startup
+const requiredEnvVars = ['SESSION_SECRET'];
+const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingVars.length > 0) {
+  console.error('❌ CRITICAL SECURITY ERROR: Missing required environment variables:');
+  console.error(`   ${missingVars.join(', ')}`);
+  console.error('   SESSION_SECRET is required to secure stream URLs and prevent unauthorized access.');
+  console.error('   Please set this environment variable before starting the application.');
+  process.exit(1);
+}
+
+// Warn if using default encryption key (but don't fail - allow development mode)
+if (!process.env.ENCRYPTION_KEY && process.env.NODE_ENV === 'production') {
+  console.warn('⚠️  WARNING: Using default ENCRYPTION_KEY in production is insecure!');
+  console.warn('   Please set ENCRYPTION_KEY environment variable for production deployment.');
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

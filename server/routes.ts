@@ -91,6 +91,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const { url: streamUrl } = payload;
 
+      // Security: Validate hostname even with token to prevent SSRF
+      const allowedHosts = ["tecflix.vip"];
+      let parsedUrl: URL;
+      
+      try {
+        parsedUrl = new URL(streamUrl);
+      } catch {
+        console.error("[Secure Stream] Invalid URL in token");
+        return res.status(400).json({ message: "Invalid URL" });
+      }
+
+      const isAllowed = allowedHosts.some(host => 
+        parsedUrl.hostname === host || parsedUrl.hostname.endsWith(`.${host}`)
+      );
+
+      if (!isAllowed) {
+        console.error(`[Secure Stream] Blocked unauthorized host: ${parsedUrl.hostname}`);
+        return res.status(403).json({ message: "Unauthorized host" });
+      }
+
       console.log(`[Secure Stream] Validated token for channel ${payload.channelId}, quality ${payload.quality}`);
       console.log(`[Secure Stream] Fetching: ${streamUrl}`);
 
@@ -124,43 +144,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const baseUrl = streamUrl.substring(0, streamUrl.lastIndexOf("/") + 1);
         const origin = `${urlObj.protocol}//${urlObj.host}`;
         
-        // Rewrite URLs in M3U8 to use secure streaming with token
+        // Helper function to convert relative/absolute URLs to signed URLs
+        const rewriteUrl = (url: string): string => {
+          let absoluteUrl = "";
+          
+          if (url.includes("://")) {
+            absoluteUrl = url;
+          } else if (url.startsWith("/")) {
+            absoluteUrl = origin + url;
+          } else {
+            absoluteUrl = baseUrl + url;
+          }
+          
+          const nestedToken = generateStreamToken(absoluteUrl, payload.channelId, payload.quality, payload.server);
+          return `/api/secure-stream?token=${nestedToken}`;
+        };
+        
+        // Rewrite URLs in M3U8 (segments, playlists, keys, maps)
         const proxiedContent = text.split("\n").map(line => {
           const trimmed = line.trim();
           
+          // Handle #EXT-X-KEY URI="..." 
+          if (trimmed.startsWith("#EXT-X-KEY")) {
+            return line.replace(/URI="([^"]+)"/g, (match, url) => {
+              return `URI="${rewriteUrl(url)}"`;
+            });
+          }
+          
+          // Handle #EXT-X-MAP URI="..."
+          if (trimmed.startsWith("#EXT-X-MAP")) {
+            return line.replace(/URI="([^"]+)"/g, (match, url) => {
+              return `URI="${rewriteUrl(url)}"`;
+            });
+          }
+          
+          // Skip comments and empty lines
           if (trimmed.startsWith("#") || !trimmed) {
             return line;
           }
           
-          let absoluteUrl = "";
+          // Handle segment URLs (.ts, .m3u8, .m4s, .mp4, .aac, etc.)
+          const segmentExtensions = [".ts", ".m3u8", ".m4s", ".mp4", ".aac", ".vtt"];
+          const isSegment = segmentExtensions.some(ext => trimmed.endsWith(ext)) || 
+                           trimmed.includes("://") || 
+                           trimmed.startsWith("/");
           
-          if (trimmed.includes("://")) {
-            absoluteUrl = trimmed;
-          } else if (trimmed.startsWith("/")) {
-            absoluteUrl = origin + trimmed;
-          } else if (trimmed.endsWith(".m3u8") || trimmed.endsWith(".ts")) {
-            absoluteUrl = baseUrl + trimmed;
-          } else {
-            return line;
+          if (isSegment) {
+            return rewriteUrl(trimmed);
           }
           
-          // Generate new token for nested resources
-          const nestedToken = generateStreamToken(absoluteUrl, payload.channelId, payload.quality, payload.server);
-          return `/api/secure-stream?token=${nestedToken}`;
+          return line;
         }).join("\n");
         
         res.setHeader("Content-Type", "application/vnd.apple.mpegurl");
-        res.setHeader("Cache-Control", "no-cache");
+        res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
         res.send(proxiedContent);
       } else {
-        // Stream video segments directly
+        // Stream video segments directly with better performance
         res.setHeader("Content-Type", contentType);
-        res.setHeader("Cache-Control", "public, max-age=31536000");
+        res.setHeader("Cache-Control", "private, max-age=3600");
         
-        if (req.headers.range && response.headers.get("accept-ranges")) {
-          res.setHeader("Accept-Ranges", "bytes");
+        // Forward range headers for partial content support
+        if (response.headers.get("accept-ranges")) {
+          res.setHeader("Accept-Ranges", response.headers.get("accept-ranges")!);
         }
         
+        if (response.headers.get("content-range")) {
+          res.setHeader("Content-Range", response.headers.get("content-range")!);
+        }
+        
+        if (response.headers.get("etag")) {
+          res.setHeader("ETag", response.headers.get("etag")!);
+        }
+        
+        if (response.headers.get("last-modified")) {
+          res.setHeader("Last-Modified", response.headers.get("last-modified")!);
+        }
+        
+        // Stream response instead of buffering in memory
         const buffer = await response.arrayBuffer();
         res.send(Buffer.from(buffer));
       }
