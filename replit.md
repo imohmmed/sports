@@ -12,7 +12,7 @@ Preferred communication style: Simple, everyday language.
 
 ### UI/UX Decisions
 
-The frontend is built with React, TypeScript, and Vite, utilizing `shadcn/ui` components based on Radix UI primitives. It features a "new-york" style dark theme by default, with an RTL-first design and comprehensive Arabic language support achieved using Tailwind CSS. Typography uses Cairo for Arabic and Inter for Latin text. The design is inspired by premium sports streaming platforms, featuring Netflix-style card layouts, responsive grid layouts, and animated transitions for an enhanced user experience. Video playback is handled by HLS.js, supporting adaptive streaming, quality selection, and cross-browser fullscreen functionality (including native iOS Safari fullscreen support via webkitEnterFullscreen).
+The frontend is built with React, TypeScript, and Vite, utilizing `shadcn/ui` components based on Radix UI primitives. It features a "new-york" style dark theme by default, with an RTL-first design and comprehensive Arabic language support achieved using Tailwind CSS. Typography uses Cairo for Arabic and Inter for Latin text. The design is inspired by premium sports streaming platforms, featuring Netflix-style card layouts, responsive grid layouts, and animated transitions for an enhanced user experience. Video playback is handled by HLS.js, configured as **LIVE broadcast mode** with seeking disabled, low-latency streaming, quality selection, and cross-browser fullscreen functionality (including native iOS Safari fullscreen support via webkitEnterFullscreen).
 
 ### Technical Implementations
 
@@ -128,6 +128,13 @@ The frontend is a **pure client-side application** with:
   - Hostname whitelist enforced (tecflix.vip only)
   - `/api/proxy-stream` disabled (HTTP 410 Gone) to prevent JWT bypass
   - URL hash validation for all token types (prevents tampering)
+- **LIVE BROADCAST MODE**: Video player configured for live streaming:
+  - Native video controls disabled (no seek bar or timeline)
+  - Seeking prevented - any attempt returns to live edge
+  - Low-latency HLS configuration (3s sync duration)
+  - "LIVE" badge with animated indicator
+  - Right-click context menu disabled
+  - Picture-in-picture disabled for live broadcasts
 - **KNOWN LIMITATIONS**:
   - Tokens can be replayed across devices during 15-minute validity (no session binding)
   - No rate limiting on `/api/secure-stream` endpoint

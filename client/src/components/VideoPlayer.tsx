@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Maximize, Volume2, VolumeX, Server } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Play, Pause, Maximize, Volume2, VolumeX, Server, Radio } from "lucide-react";
 
 interface ChannelServer {
   name: string;
@@ -35,10 +36,40 @@ export default function VideoPlayer({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showControls, setShowControls] = useState(false);
 
   // Get available qualities for current server
   const currentServerData = servers.find(s => s.name === selectedServer);
   const availableQualities = currentServerData?.qualities.map(q => q.quality) || [];
+
+  // Helper to jump to live edge (shared between HLS and native Safari)
+  const jumpToLiveEdge = (video: HTMLVideoElement, hls?: Hls | null) => {
+    try {
+      // Method 1: Use HLS.js liveSyncPosition if available
+      if (hls?.liveSyncPosition !== undefined && 
+          hls.liveSyncPosition !== null && 
+          Number.isFinite(hls.liveSyncPosition)) {
+        video.currentTime = hls.liveSyncPosition;
+        return;
+      }
+
+      // Method 2: Use seekable end
+      if (video.seekable && video.seekable.length > 0) {
+        const end = video.seekable.end(video.seekable.length - 1);
+        if (Number.isFinite(end) && end > 0) {
+          video.currentTime = Math.max(0, end - 0.5);
+          return;
+        }
+      }
+
+      // Method 3: Fallback to duration
+      if (video.duration && Number.isFinite(video.duration)) {
+        video.currentTime = video.duration;
+      }
+    } catch (error) {
+      console.log("Could not jump to live edge:", error);
+    }
+  };
 
   useEffect(() => {
     const video = videoRef.current;
@@ -56,6 +87,9 @@ export default function VideoPlayer({
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
+        liveSyncDurationCount: 3,
+        liveMaxLatencyDurationCount: 10,
+        highBufferWatchdogPeriod: 1,
       });
 
       hlsRef.current = hls;
@@ -64,6 +98,7 @@ export default function VideoPlayer({
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
         setIsLoading(false);
+        jumpToLiveEdge(video, hls);
         video.play().catch(e => console.log("Autoplay prevented:", e));
       });
 
@@ -89,11 +124,20 @@ export default function VideoPlayer({
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Native HLS support (Safari)
-      video.src = streamUrl;
-      video.addEventListener("loadedmetadata", () => {
+      const handleLoadedMetadata = () => {
         setIsLoading(false);
+        jumpToLiveEdge(video, null);
         video.play().catch(e => console.log("Autoplay prevented:", e));
-      });
+      };
+      
+      video.src = streamUrl;
+      video.addEventListener("loadedmetadata", handleLoadedMetadata);
+
+      // Cleanup for Safari
+      return () => {
+        video.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        video.src = "";
+      };
     }
 
     return () => {
@@ -110,13 +154,54 @@ export default function VideoPlayer({
 
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
+    
+    // Prevent seeking - keep video at live edge (with threshold to avoid churn)
+    const handleSeeking = () => {
+      try {
+        let targetTime: number | null = null;
+        
+        // Read hlsRef dynamically to get current instance after quality/server changes
+        const currentHls = hlsRef.current;
+
+        // Determine target live edge position
+        if (currentHls?.liveSyncPosition !== undefined && 
+            currentHls.liveSyncPosition !== null && 
+            Number.isFinite(currentHls.liveSyncPosition)) {
+          targetTime = currentHls.liveSyncPosition;
+        } else if (video.seekable && video.seekable.length > 0) {
+          const end = video.seekable.end(video.seekable.length - 1);
+          if (Number.isFinite(end) && end > 0) {
+            targetTime = Math.max(0, end - 0.5);
+          }
+        } else if (video.duration && Number.isFinite(video.duration)) {
+          targetTime = video.duration;
+        }
+
+        // Only seek if delta is significant (avoid redundant seeks)
+        if (targetTime !== null && Math.abs(video.currentTime - targetTime) > 0.75) {
+          video.currentTime = targetTime;
+        }
+      } catch (error) {
+        console.log("Could not prevent seeking:", error);
+      }
+    };
+
+    // Disable right-click to prevent native controls menu
+    const handleContextMenu = (e: Event) => {
+      e.preventDefault();
+      return false;
+    };
 
     video.addEventListener("play", handlePlay);
     video.addEventListener("pause", handlePause);
+    video.addEventListener("seeking", handleSeeking);
+    video.addEventListener("contextmenu", handleContextMenu);
 
     return () => {
       video.removeEventListener("play", handlePlay);
       video.removeEventListener("pause", handlePause);
+      video.removeEventListener("seeking", handleSeeking);
+      video.removeEventListener("contextmenu", handleContextMenu);
     };
   }, []);
 
@@ -191,19 +276,56 @@ export default function VideoPlayer({
     }
   };
 
+  const handleVideoClick = () => {
+    // Toggle play/pause on video click (helpful for touch devices)
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      video.play();
+    } else {
+      video.pause();
+    }
+  };
+
+  const handleContainerClick = (e: React.MouseEvent) => {
+    // Only toggle if clicking backdrop (not buttons or controls)
+    if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === 'VIDEO') {
+      setShowControls(prev => !prev);
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
       className="relative w-full bg-black rounded-lg overflow-hidden shadow-2xl group"
       data-testid="video-player-container"
+      onClick={handleContainerClick}
     >
-      {/* Video Element */}
+      {/* Video Element - Live Broadcast Mode */}
       <video
         ref={videoRef}
         className="w-full aspect-video"
         playsInline
+        controls={false}
+        disablePictureInPicture
+        disableRemotePlayback
+        controlsList="nodownload"
         data-testid="video-element"
+        onClick={handleVideoClick}
       />
+
+      {/* Live Badge */}
+      <div className="absolute top-4 right-4 z-10">
+        <Badge 
+          variant="destructive" 
+          className="flex items-center gap-1 px-2 py-1 bg-red-600 hover:bg-red-600"
+          data-testid="badge-live"
+        >
+          <Radio className="w-3 h-3 animate-pulse" />
+          <span className="font-bold text-xs">LIVE</span>
+        </Badge>
+      </div>
 
       {/* Loading Overlay */}
       {isLoading && (
@@ -212,8 +334,8 @@ export default function VideoPlayer({
         </div>
       )}
 
-      {/* Controls Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+      {/* Controls Overlay - Show on hover (desktop) or tap (mobile) */}
+      <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${showControls ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
         {/* Channel Name */}
         <div className="text-white text-sm mb-2" data-testid="video-channel-name">
           {channelName}
