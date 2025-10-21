@@ -1,8 +1,8 @@
-# AlAli Sport - Sports Streaming Platform
+# AlAli Sport - Sports & News Streaming Platform
 
 ## Overview
 
-AlAli Sport is a **free, open-access** sports streaming platform dedicated to Arabic-language football content, offering live streaming of beIN Sports channels in multiple quality options (FHD, HD, LOW). It provides a premium viewing experience with Right-to-Left (RTL) Arabic language support and secure stream URL encryption. The platform aims to be a simple, accessible destination for Arabic sports enthusiasts.
+AlAli Sport is a **free, open-access** streaming platform offering live Arabic-language content across two categories: **Sports Channels** (beIN Sports network) and **News Channels** (44 Arabic and international news channels including Al Jazeera, Al Arabiya, Lebanese channels, and international outlets). The platform provides multiple quality options (FHD, HD, LOW) and server options (main/BK backup) with Right-to-Left (RTL) Arabic language support and secure stream URL encryption.
 
 ## User Preferences
 
@@ -17,22 +17,25 @@ The frontend is built with React, TypeScript, and Vite, utilizing `shadcn/ui` co
 ### Technical Implementations
 
 The backend is a minimal Express.js + TypeScript server that provides:
-- **Channel Listing API**: Public endpoint (`/api/channels`) returning all available channels with their quality options
-- **Stream URL Decryption**: Public endpoint (`/api/stream/:channelId/:quality`) that decrypts stored stream URLs
-- **HLS Proxy System**: Public endpoint (`/api/proxy-stream`) that proxies HLS streams to handle CORS and mixed content issues, including M3U8 playlist rewriting for absolute and relative URLs
+- **Channel Listing API**: Public endpoint (`/api/channels`) returning all available channels with category, servers, and quality options
+- **Stream URL Decryption**: Public endpoint (`/api/stream/:channelId/:quality?server=main|BK`) that decrypts stored stream URLs for specified server
+- **HLS Proxy System**: Public endpoint (`/api/proxy-stream?url=...`) that proxies HLS streams with hostname whitelist validation (tecflix.vip) to prevent SSRF attacks, including M3U8 playlist rewriting for absolute and relative URLs
 
 The frontend is a **pure client-side application** with:
 - **No Authentication**: Direct access to all channels and streams
 - **No Subscription Management**: All content is freely accessible
-- **Simple Navigation**: Home page with channel grid, player page for streaming
+- **Category Tabs**: Home page with tabs for Sports and News categories
+- **Server Selection**: Users can switch between main and BK backup servers
 - **Quality Selection**: Users can switch between FHD, HD, and LOW quality streams in real-time
 
 ### Feature Specifications
 
 - **Open Access**: No login or subscription required - all channels accessible to everyone
-- **Stream Proxy System**: Backend proxies HLS streams to handle CORS, mixed content, and M3U8 playlist URL rewriting
+- **Category System**: Separate tabs for Sports (beIN Sports) and News (44 channels) with channel counts
+- **Multi-Server Support**: Main and BK backup servers for each channel with automatic failover capability
+- **Stream Proxy System**: Backend proxies HLS streams with SSRF protection (hostname whitelist validation)
 - **Cross-Browser Fullscreen**: Standard fullscreen API for desktop/Android, native video fullscreen for iOS Safari
-- **Quality Switching**: Real-time quality changes (FHD/HD/LOW) without page reload
+- **Quality & Server Switching**: Real-time quality (FHD/HD/LOW) and server (main/BK) changes without page reload
 - **RTL Arabic UI**: Complete right-to-left layout with Arabic typography
 
 ### System Design Choices
@@ -60,39 +63,59 @@ The frontend is a **pure client-side application** with:
 
 ## Recent Changes (October 21, 2025)
 
+### Phase 1: Platform Simplification
 - **REMOVED**: All authentication and login system (Replit OIDC, Passport.js)
 - **REMOVED**: All subscription management (no user accounts, subscriptions, or admin dashboard)
 - **REMOVED**: Session tracking and heartbeat system
 - **SIMPLIFIED**: Backend now only provides channel data, stream decryption, and HLS proxy
 - **SIMPLIFIED**: Frontend is pure client-side with direct access to all content
 - **SIMPLIFIED**: Removed all user-related pages (Landing, Dashboard, Admin, Auth)
-- **SIMPLIFIED**: Created single HomePage that displays all channels without login requirement
+
+### Phase 2: Category System & News Channels
+- **ADDED**: Category system with "sports" and "news" categories
+- **ADDED**: 44 news channels including:
+  - Al Jazeera network (Main, Mubasher, Documentary, English)
+  - Al Arabiya network (Main, Hadath, English, Business)
+  - Lebanese channels (LBCI, OTV, MTV Lebanon, Future TV, NBN)
+  - International news (BBC Arabic, DW Arabic, France 24, RT, Press TV)
+  - And many more Arabic news sources
+- **ADDED**: Multi-server support (main and BK backup) for all channels
+- **ADDED**: Category tabs on homepage to filter channels by type
+- **ADDED**: Server selector in video player for manual server switching
+- **SECURITY**: Added hostname whitelist validation to proxy endpoint to prevent SSRF attacks
 
 ## Application Structure
 
 ### Backend Routes
-- `GET /api/channels` - Returns all channels with available quality options
-- `GET /api/stream/:channelId/:quality` - Returns decrypted stream URL for given channel and quality
-- `GET /api/proxy-stream?url=<encoded_url>` - Proxies HLS streams and rewrites M3U8 playlists
+- `GET /api/channels` - Returns all channels with category, servers, and quality options per server
+- `GET /api/stream/:channelId/:quality?server=main|BK` - Returns decrypted stream URL for given channel, quality, and server
+- `GET /api/proxy-stream?url=<encoded_url>` - Proxies HLS streams with hostname whitelist validation and M3U8 playlist rewriting
 
 ### Frontend Pages
-- `/` - HomePage: Displays all available channels in a grid layout
-- `/player/:id` - Player: Video player for selected channel with quality selection
+- `/` - HomePage: Displays channels filtered by category (sports/news) with tab navigation
+- `/player/:id` - Player: Video player with server selection (main/BK) and quality selection (FHD/HD/LOW)
 
 ### Key Components
 - `Header`: Logo, theme toggle (dark/light mode)
-- `ChannelGrid`: Grid display of all available channels
-- `VideoPlayer`: HLS player with quality selection and fullscreen controls
+- `ChannelGrid`: Grid display of channels with category filtering support
+- `VideoPlayer`: HLS player with server selection, quality selection, and fullscreen controls
 - `Footer`: Simple footer with branding
+- `Tabs`: Category navigation (Sports/News) with channel counts
 
 ## Database Schema
 
 ### Channels Table
 - `id` (varchar, primary key): Unique channel identifier
 - `name` (varchar): Display name (Arabic)
+- `category` (varchar): Channel category ("sports" or "news")
 
-### Streams Table
+### ChannelStreams Table
 - `id` (serial, primary key): Auto-increment ID
 - `channelId` (varchar, foreign key): References channels.id
+- `serverName` (varchar): Server identifier ("main" or "BK")
 - `quality` (varchar): Stream quality (FHD, HD, LOW)
 - `encryptedUrl` (text): AES-256-CBC encrypted HLS stream URL
+
+### Channel Categories
+- **Sports**: beIN Sports channels (1-7, Premium 1-3, NBA, AFC, Xtra 1-2)
+- **News**: 44 Arabic and international news channels across major networks
