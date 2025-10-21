@@ -89,23 +89,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid or expired token" });
       }
 
-      // Rebuild URL from database instead of trusting JWT payload
-      const streams = await storage.getChannelStreams(payload.channelId);
-      const stream = streams.find(s => 
-        s.quality === payload.quality && (s.serverName || "main") === payload.server
-      );
+      let streamUrl: string;
       
-      if (!stream) {
-        console.error(`[Secure Stream] Stream not found for channel ${payload.channelId}`);
-        return res.status(404).json({ message: "Stream not found" });
-      }
+      // For nested resources (segments, sub-playlists), URL is in token
+      // For master playlists, rebuild from database
+      if (payload.url) {
+        streamUrl = payload.url;
+        
+        // Validate URL hash for security
+        if (!validateUrlHash(streamUrl, payload.urlHash)) {
+          console.error(`[Secure Stream] URL hash mismatch for nested resource`);
+          return res.status(403).json({ message: "Invalid stream token" });
+        }
+      } else {
+        // Rebuild URL from database for master playlist
+        const streams = await storage.getChannelStreams(payload.channelId);
+        const stream = streams.find(s => 
+          s.quality === payload.quality && (s.serverName || "main") === payload.server
+        );
+        
+        if (!stream) {
+          console.error(`[Secure Stream] Stream not found for channel ${payload.channelId}`);
+          return res.status(404).json({ message: "Stream not found" });
+        }
 
-      const streamUrl = decryptUrl(stream.encryptedUrl);
-      
-      // Validate that the URL matches the hash in the token (defense in depth)
-      if (!validateUrlHash(streamUrl, payload.urlHash)) {
-        console.error(`[Secure Stream] URL hash mismatch for channel ${payload.channelId}`);
-        return res.status(403).json({ message: "Invalid stream token" });
+        streamUrl = decryptUrl(stream.encryptedUrl);
+        
+        // Validate that the URL matches the hash in the token (defense in depth)
+        if (!validateUrlHash(streamUrl, payload.urlHash)) {
+          console.error(`[Secure Stream] URL hash mismatch for channel ${payload.channelId}`);
+          return res.status(403).json({ message: "Invalid stream token" });
+        }
       }
 
       // Security: Validate hostname even with token to prevent SSRF
@@ -218,7 +232,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             absoluteUrl = baseUrl + url;
           }
           
-          const nestedToken = generateStreamToken(absoluteUrl, payload.channelId, payload.quality, payload.server);
+          // For nested resources, include URL in token (they're not in DB)
+          const nestedToken = generateStreamToken(absoluteUrl, payload.channelId, payload.quality, payload.server, true);
           return `/api/secure-stream?token=${nestedToken}`;
         };
         

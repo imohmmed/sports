@@ -9,13 +9,15 @@ interface StreamTokenPayload {
   quality: string;
   server: string;
   urlHash: string; // Hash of URL for validation (not the URL itself)
+  url?: string; // Optional: for nested resources (segments, sub-playlists) that aren't in DB
 }
 
 export function generateStreamToken(
   url: string,
   channelId: string,
   quality: string,
-  server: string
+  server: string,
+  includeUrl: boolean = false // For nested resources, include URL in token
 ): string {
   // Create hash of URL for validation without exposing it
   const urlHash = crypto.createHash('sha256').update(url).digest('hex').substring(0, 16);
@@ -26,6 +28,11 @@ export function generateStreamToken(
     server,
     urlHash,
   };
+  
+  // For nested resources (segments, sub-playlists), include URL since they're not in DB
+  if (includeUrl) {
+    payload.url = url;
+  }
 
   return jwt.sign(payload, JWT_SECRET, {
     expiresIn: TOKEN_EXPIRY,
