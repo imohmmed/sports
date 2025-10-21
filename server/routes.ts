@@ -1,6 +1,5 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { WebSocketServer } from "ws";
 import { storage } from "./storage";
 import { decryptUrl } from "./encryption";
 
@@ -142,17 +141,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Create HTTP server
   const httpServer = createServer(app);
-
-  // Setup WebSocket server (for future features if needed)
-  const wss = new WebSocketServer({ server: httpServer });
-
-  wss.on("connection", (ws) => {
-    console.log("WebSocket client connected");
-
-    ws.on("close", () => {
-      console.log("WebSocket client disconnected");
-    });
-  });
 
   return httpServer;
 }
