@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { decryptUrl } from "./encryption";
-import { generateStreamToken, verifyStreamToken } from "./stream-token";
+import { generateStreamToken, verifyStreamToken, validateUrlHash } from "./stream-token";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all channels (public)
@@ -89,7 +89,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: "Invalid or expired token" });
       }
 
-      const { url: streamUrl } = payload;
+      // Rebuild URL from database instead of trusting JWT payload
+      const streams = await storage.getChannelStreams(payload.channelId);
+      const stream = streams.find(s => 
+        s.quality === payload.quality && (s.serverName || "main") === payload.server
+      );
+      
+      if (!stream) {
+        console.error(`[Secure Stream] Stream not found for channel ${payload.channelId}`);
+        return res.status(404).json({ message: "Stream not found" });
+      }
+
+      const streamUrl = decryptUrl(stream.encryptedUrl);
+      
+      // Validate that the URL matches the hash in the token (defense in depth)
+      if (!validateUrlHash(streamUrl, payload.urlHash)) {
+        console.error(`[Secure Stream] URL hash mismatch for channel ${payload.channelId}`);
+        return res.status(403).json({ message: "Invalid stream token" });
+      }
 
       // Security: Validate hostname even with token to prevent SSRF
       const allowedHosts = ["tecflix.vip"];
@@ -112,14 +129,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       console.log(`[Secure Stream] Validated token for channel ${payload.channelId}, quality ${payload.quality}`);
-      console.log(`[Secure Stream] Fetching: ${streamUrl}`);
+      
+      // Build upstream headers (forward Range, If-Range, etc. for partial content support)
+      const upstreamHeaders: Record<string, string> = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Referer': 'http://tecflix.vip',
+      };
+      
+      if (req.headers.range) {
+        upstreamHeaders['Range'] = req.headers.range;
+      }
+      if (req.headers['if-range']) {
+        upstreamHeaders['If-Range'] = req.headers['if-range'] as string;
+      }
+      if (req.headers['if-none-match']) {
+        upstreamHeaders['If-None-Match'] = req.headers['if-none-match'] as string;
+      }
+      if (req.headers['if-modified-since']) {
+        upstreamHeaders['If-Modified-Since'] = req.headers['if-modified-since'] as string;
+      }
 
       // Fetch and proxy the stream
       const response = await fetch(streamUrl, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-          'Referer': 'http://tecflix.vip',
-        },
+        headers: upstreamHeaders,
       });
 
       if (!response.ok) {
@@ -200,30 +232,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.setHeader("Cache-Control", "private, no-cache, must-revalidate");
         res.send(proxiedContent);
       } else {
-        // Stream video segments directly with better performance
+        // Stream video segments directly with true streaming (no buffering)
+        res.status(response.status);
         res.setHeader("Content-Type", contentType);
         res.setHeader("Cache-Control", "private, max-age=3600");
         
-        // Forward range headers for partial content support
+        // Forward all relevant headers for partial content and caching
+        if (response.headers.get("content-length")) {
+          res.setHeader("Content-Length", response.headers.get("content-length")!);
+        }
         if (response.headers.get("accept-ranges")) {
           res.setHeader("Accept-Ranges", response.headers.get("accept-ranges")!);
         }
-        
         if (response.headers.get("content-range")) {
           res.setHeader("Content-Range", response.headers.get("content-range")!);
         }
-        
         if (response.headers.get("etag")) {
           res.setHeader("ETag", response.headers.get("etag")!);
         }
-        
         if (response.headers.get("last-modified")) {
           res.setHeader("Last-Modified", response.headers.get("last-modified")!);
         }
         
-        // Stream response instead of buffering in memory
-        const buffer = await response.arrayBuffer();
-        res.send(Buffer.from(buffer));
+        // Stream response body directly without buffering
+        if (response.body) {
+          const reader = response.body.getReader();
+          
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
+              res.write(value);
+            }
+            res.end();
+          } catch (error) {
+            console.error("[Secure Stream] Streaming error:", error);
+            reader.cancel();
+            if (!res.headersSent) {
+              res.status(500).json({ message: "Stream error" });
+            }
+          }
+        } else {
+          // Fallback to buffering if body is not available
+          const buffer = await response.arrayBuffer();
+          res.send(Buffer.from(buffer));
+        }
       }
     } catch (error: any) {
       console.error("[Secure Stream] Error:", error.message || error);
