@@ -30,15 +30,15 @@ The backend is a minimal Express.js + TypeScript server that provides:
 - **Stream Protection**: All stream URLs are time-limited (15min), channel-specific, and hash-validated to prevent URL theft and tampering
 
 The frontend is a **pure client-side application** with:
-- **No Authentication**: Direct access to all channels and streams
-- **No Subscription Management**: All content is freely accessible
+- **Password Gate**: Simple password protection requiring "i love alaliplus" to access the site (client-side only)
+- **No User Accounts**: No subscription or user management - single password for all users
 - **Category Tabs**: Home page with tabs for Sports and News categories
 - **Server Selection**: Users can switch between main and BK backup servers
 - **Quality Selection**: Users can switch between FHD, HD, and LOW quality streams in real-time
 
 ### Feature Specifications
 
-- **Open Access**: No login or subscription required - all channels accessible to everyone
+- **Password Protection**: Simple client-side password gate requiring "i love alaliplus" for access
 - **Category System**: Separate tabs for Sports (beIN Sports) and News (44 channels) with channel counts
 - **Multi-Server Support**: Main and BK backup servers for each channel with automatic failover capability
 - **Stream Proxy System**: Backend proxies HLS streams with SSRF protection (hostname whitelist validation)
@@ -48,7 +48,7 @@ The frontend is a **pure client-side application** with:
 
 ### System Design Choices
 
-- **No User Authentication**: Removed all user authentication and session management for simplicity
+- **Simple Password Gate**: Client-side password protection with localStorage persistence (password: "i love alaliplus")
 - **Stream Security**: JWT-based token authentication for all stream URLs (15-minute expiry)
 - **Minimal Backend**: Only provides channel data, stream token generation, and secure streaming
 - **Data Storage**: PostgreSQL with Drizzle ORM stores channel and stream information (no user data)
