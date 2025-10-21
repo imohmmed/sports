@@ -11,12 +11,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const channelsWithStreams = await Promise.all(
         channels.map(async (channel) => {
           const streams = await storage.getChannelStreams(channel.id);
+          
+          // Group streams by server and quality
+          const streamsByServer: Record<string, any[]> = {};
+          streams.forEach((s) => {
+            const serverName = s.serverName || "main";
+            if (!streamsByServer[serverName]) {
+              streamsByServer[serverName] = [];
+            }
+            streamsByServer[serverName].push({
+              quality: s.quality,
+              available: true,
+            });
+          });
+
           return {
             id: channel.id,
             name: channel.name,
-            qualities: streams.map((s) => ({
-              quality: s.quality,
-              available: true,
+            category: channel.category,
+            servers: Object.keys(streamsByServer).map(serverName => ({
+              name: serverName,
+              qualities: streamsByServer[serverName],
             })),
           };
         })
@@ -32,9 +47,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/stream/:channelId/:quality", async (req, res) => {
     try {
       const { channelId, quality } = req.params;
+      const { server } = req.query;
+      const serverName = (server as string) || "main";
 
       const streams = await storage.getChannelStreams(channelId);
-      const stream = streams.find(s => s.quality === quality);
+      const stream = streams.find(s => 
+        s.quality === quality && (s.serverName || "main") === serverName
+      );
       
       if (!stream) {
         return res.status(404).json({ message: "Stream not found" });
