@@ -3,22 +3,19 @@ import Hls from "hls.js";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, Maximize, Volume2, VolumeX } from "lucide-react";
 
-interface QualityOption {
-  quality: string;
-  url: string;
-}
-
 interface VideoPlayerProps {
+  streamUrl: string;
   channelName: string;
-  qualities: QualityOption[];
+  qualities: string[];
   currentQuality?: string;
   onQualityChange?: (quality: string) => void;
 }
 
 export default function VideoPlayer({ 
+  streamUrl,
   channelName, 
   qualities, 
-  currentQuality = qualities[0]?.quality,
+  currentQuality = qualities[0],
   onQualityChange 
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -29,11 +26,9 @@ export default function VideoPlayer({
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const currentStream = qualities.find(q => q.quality === selectedQuality);
-
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !currentStream?.url) return;
+    if (!video || !streamUrl) return;
 
     setIsLoading(true);
 
@@ -50,7 +45,7 @@ export default function VideoPlayer({
       });
 
       hlsRef.current = hls;
-      hls.loadSource(currentStream.url);
+      hls.loadSource(streamUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -80,7 +75,7 @@ export default function VideoPlayer({
       });
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Native HLS support (Safari)
-      video.src = currentStream.url;
+      video.src = streamUrl;
       video.addEventListener("loadedmetadata", () => {
         setIsLoading(false);
         video.play().catch(e => console.log("Autoplay prevented:", e));
@@ -93,7 +88,7 @@ export default function VideoPlayer({
         hlsRef.current = null;
       }
     };
-  }, [currentStream?.url]);
+  }, [streamUrl]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -111,165 +106,135 @@ export default function VideoPlayer({
     };
   }, []);
 
-  const handleQualityClick = (quality: string) => {
-    setSelectedQuality(quality);
-    onQualityChange?.(quality);
-  };
-
   const togglePlay = () => {
     const video = videoRef.current;
     if (!video) return;
 
-    if (isPlaying) {
-      video.pause();
+    if (video.paused) {
+      video.play();
     } else {
-      video.play().catch(e => console.log("Play error:", e));
+      video.pause();
     }
   };
 
   const toggleMute = () => {
     const video = videoRef.current;
     if (!video) return;
-    video.muted = !isMuted;
-    setIsMuted(!isMuted);
+
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
   };
 
   const toggleFullscreen = () => {
-    const video = videoRef.current;
     const container = containerRef.current;
-    if (!video || !container) return;
+    const video = videoRef.current;
+    if (!container || !video) return;
 
-    // iOS Safari requires fullscreen on video element
-    if ((video as any).webkitEnterFullscreen) {
-      try {
-        (video as any).webkitEnterFullscreen();
-      } catch (e) {
-        console.log("iOS fullscreen error:", e);
+    // iOS Safari fullscreen handling
+    const webkitVideo = video as any;
+    const webkitDoc = document as any;
+    
+    if (webkitVideo.webkitEnterFullscreen) {
+      if (webkitDoc.webkitIsFullScreen) {
+        webkitDoc.webkitExitFullscreen?.();
+      } else {
+        webkitVideo.webkitEnterFullscreen();
       }
       return;
     }
 
-    // Desktop browsers - fullscreen on container
+    // Standard fullscreen API for other browsers
     if (!document.fullscreenElement) {
-      if (container.requestFullscreen) {
-        container.requestFullscreen().catch(e => console.log("Fullscreen error:", e));
-      } else if ((container as any).webkitRequestFullscreen) {
-        (container as any).webkitRequestFullscreen();
-      } else if ((container as any).mozRequestFullScreen) {
-        (container as any).mozRequestFullScreen();
-      } else if ((container as any).msRequestFullscreen) {
-        (container as any).msRequestFullscreen();
-      }
+      container.requestFullscreen().catch(err => {
+        console.error("Error attempting to enable fullscreen:", err);
+      });
     } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      } else if ((document as any).webkitExitFullscreen) {
-        (document as any).webkitExitFullscreen();
-      } else if ((document as any).mozCancelFullScreen) {
-        (document as any).mozCancelFullScreen();
-      } else if ((document as any).msExitFullscreen) {
-        (document as any).msExitFullscreen();
-      }
+      document.exitFullscreen();
     }
   };
 
-  return (
-    <div className="w-full max-w-5xl mx-auto animate-in fade-in slide-in-from-bottom-10 duration-700" data-testid="container-video-player">
-      <div className="bg-card rounded-lg overflow-hidden border shadow-2xl transition-all duration-500 hover:shadow-primary/20">
-        <div ref={containerRef} className="relative aspect-video bg-black group">
-          {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-20">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary"></div>
-            </div>
-          )}
-          
-          <video
-            ref={videoRef}
-            className="w-full h-full"
-            controls={false}
-            playsInline
-            data-testid="video-player"
-          />
-          
-          <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-all duration-500">
-            <div className="flex gap-2">
-              <Button 
-                size="icon" 
-                variant="secondary" 
-                className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110"
-                onClick={togglePlay}
-                data-testid={`button-${isPlaying ? 'pause' : 'play'}`}
-              >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </Button>
-              <Button 
-                size="icon" 
-                variant="secondary" 
-                className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110"
-                onClick={toggleMute}
-                data-testid={`button-${isMuted ? 'unmute' : 'mute'}`}
-              >
-                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              </Button>
-            </div>
-            <Button 
-              size="icon" 
-              variant="secondary" 
-              className="bg-black/50 backdrop-blur-sm hover:bg-black/70 transition-all duration-300 hover:scale-110"
-              onClick={toggleFullscreen}
-              data-testid="button-fullscreen"
-            >
-              <Maximize className="h-4 w-4" />
-            </Button>
-          </div>
+  const handleQualityClick = (quality: string) => {
+    setSelectedQuality(quality);
+    onQualityChange?.(quality);
+  };
 
-          {!isPlaying && !isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center z-10">
-              <div className="text-center animate-in zoom-in duration-700">
-                <div 
-                  className="rounded-full bg-primary/20 backdrop-blur-sm p-6 mb-4 inline-block transition-all duration-500 hover:scale-110 hover:bg-primary/30 cursor-pointer"
-                  onClick={togglePlay}
-                >
-                  <Play className="h-16 w-16 text-white transition-transform duration-300 hover:scale-110" />
-                </div>
-                <p className="text-white text-lg font-medium">{channelName}</p>
-                <p className="text-white/70 text-sm mt-2">البث المباشر - {selectedQuality}</p>
-              </div>
-            </div>
-          )}
+  return (
+    <div 
+      ref={containerRef}
+      className="relative w-full bg-black rounded-lg overflow-hidden shadow-2xl group"
+      data-testid="video-player-container"
+    >
+      {/* Video Element */}
+      <video
+        ref={videoRef}
+        className="w-full aspect-video"
+        playsInline
+        data-testid="video-element"
+      />
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white" data-testid="video-loading" />
         </div>
-        
-        <div className="p-4 bg-card transition-all duration-500">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="animate-in slide-in-from-right-5 duration-500 delay-300">
-              <h3 className="font-bold text-lg text-card-foreground transition-colors duration-300" data-testid="text-player-channel-name">
-                {channelName}
-              </h3>
-              <p className="text-sm text-muted-foreground transition-colors duration-300">اختر الجودة المناسبة</p>
-            </div>
-            
-            <div className="flex gap-2 flex-wrap">
-              {qualities.map((q, index) => (
-                <Button
-                  key={q.quality}
-                  size="sm"
-                  variant={selectedQuality === q.quality ? "default" : "outline"}
-                  onClick={() => handleQualityClick(q.quality)}
-                  className={`transition-all duration-300 hover:scale-110 animate-in slide-in-from-bottom-3 ${
-                    selectedQuality === q.quality
-                      ? q.quality === 'FHD' ? 'bg-green-600 hover:bg-green-700 shadow-lg shadow-green-500/50' :
-                        q.quality === 'HD' ? 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/50' :
-                        'bg-gray-600 hover:bg-gray-700 shadow-lg shadow-gray-500/50'
-                      : 'hover:border-primary hover:shadow-md'
-                  }`}
-                  style={{ animationDelay: `${index * 100 + 500}ms` }}
-                  data-testid={`button-quality-${q.quality}`}
-                >
-                  {q.quality}
-                </Button>
-              ))}
-            </div>
-          </div>
+      )}
+
+      {/* Controls Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+        {/* Channel Name */}
+        <div className="text-white text-sm mb-2" data-testid="video-channel-name">
+          {channelName}
+        </div>
+
+        {/* Quality Selector */}
+        <div className="flex gap-2 mb-3 flex-wrap">
+          {qualities.map((quality) => (
+            <Button
+              key={quality}
+              size="sm"
+              variant={selectedQuality === quality ? "default" : "secondary"}
+              onClick={() => handleQualityClick(quality)}
+              className="text-xs"
+              data-testid={`button-quality-${quality.toLowerCase()}`}
+            >
+              {quality}
+            </Button>
+          ))}
+        </div>
+
+        {/* Control Buttons */}
+        <div className="flex items-center gap-3">
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={togglePlay}
+            className="text-white hover:bg-white/20"
+            data-testid="button-play-pause"
+          >
+            {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5" />}
+          </Button>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleMute}
+            className="text-white hover:bg-white/20"
+            data-testid="button-mute"
+          >
+            {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+          </Button>
+
+          <div className="flex-1" />
+
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={toggleFullscreen}
+            className="text-white hover:bg-white/20"
+            data-testid="button-fullscreen"
+          >
+            <Maximize className="h-5 w-5" />
+          </Button>
         </div>
       </div>
     </div>
