@@ -75,6 +75,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing URL parameter" });
       }
 
+      // Security: Validate URL to prevent SSRF attacks
+      const allowedHosts = ["tecflix.vip"];
+      let parsedUrl: URL;
+      
+      try {
+        parsedUrl = new URL(targetUrl);
+      } catch {
+        return res.status(400).json({ message: "Invalid URL" });
+      }
+
+      // Check if hostname is in allowlist
+      const isAllowed = allowedHosts.some(host => 
+        parsedUrl.hostname === host || parsedUrl.hostname.endsWith(`.${host}`)
+      );
+
+      if (!isAllowed) {
+        console.error(`[Proxy] Blocked unauthorized host: ${parsedUrl.hostname}`);
+        return res.status(403).json({ message: "Unauthorized host" });
+      }
+
       console.log(`[Proxy] Fetching: ${targetUrl}`);
 
       const response = await fetch(targetUrl, {
