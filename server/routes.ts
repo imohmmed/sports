@@ -1,8 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { decryptUrl } from "./encryption";
+import { decryptUrl, encryptUrl } from "./encryption";
 import { generateStreamToken, verifyStreamToken, validateUrlHash } from "./stream-token";
+import { db } from "./db";
+import { channels, channelStreams } from "@shared/schema";
+import { eq } from "drizzle-orm";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all channels (public)
@@ -349,6 +352,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error: any) {
       console.error("[Secure Stream] Error:", error.message || error);
       res.status(500).json({ message: "Stream error", error: error.message });
+    }
+  });
+
+  // Seed sports channels endpoint
+  app.post("/api/seed-sports", async (req, res) => {
+    try {
+      const sportsChannels = [
+        { name: "BeIN Sport", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516713.m3u8" }] },
+        { name: "BeIN 1", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516714.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516725.m3u8" }, { quality: "LOW", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516737.m3u8" }] },
+        { name: "BeIN 2", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516715.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516726.m3u8" }, { quality: "LOW", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516738.m3u8" }] },
+        { name: "BeIN 3", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516716.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516727.m3u8" }, { quality: "LOW", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516739.m3u8" }] },
+        { name: "BeIN 4", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516717.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516728.m3u8" }, { quality: "LOW", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516740.m3u8" }] },
+        { name: "BeIN 5", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516718.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516729.m3u8" }, { quality: "LOW", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516741.m3u8" }] },
+        { name: "BeIN 6", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516719.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516730.m3u8" }, { quality: "LOW", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516742.m3u8" }] },
+        { name: "BeIN 7", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516720.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516731.m3u8" }, { quality: "LOW", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516743.m3u8" }] },
+        { name: "BeIN 8", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516721.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516732.m3u8" }] },
+        { name: "BeIN 9", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516722.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516733.m3u8" }] },
+        { name: "BeIN Premium 1", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516723.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516734.m3u8" }] },
+        { name: "BeIN Premium 2", streams: [{ quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516735.m3u8" }] },
+        { name: "BeIN NBA", streams: [{ quality: "FHD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516724.m3u8" }, { quality: "HD", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516736.m3u8" }] },
+      ];
+      
+      for (let i = 0; i < sportsChannels.length; i++) {
+        const channelInfo = sportsChannels[i];
+        const [channel] = await db.insert(channels).values({ name: channelInfo.name, category: "sports", displayOrder: i + 1 }).returning();
+        for (const stream of channelInfo.streams) {
+          await db.insert(channelStreams).values({ channelId: channel.id, quality: stream.quality, serverName: "main", encryptedUrl: encryptUrl(stream.url) });
+        }
+      }
+      res.json({ message: `Added ${sportsChannels.length} sports channels` });
+    } catch (error: any) {
+      console.error("Seed error:", error);
+      res.status(500).json({ message: "Seed failed", error: error.message });
+    }
+  });
+
+  // Seed news channels endpoint
+  app.post("/api/seed-news", async (req, res) => {
+    try {
+      const newsChannels = [
+        { name: "الجزيرة", streams: [{ quality: "FHD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516744.m3u8" }, { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516745.m3u8" }, { quality: "LOW", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516746.m3u8" }, { quality: "FHD", serverName: "BK", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516799.m3u8" }] },
+        { name: "الجزيرة مباشر", streams: [{ quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516747.m3u8" }, { quality: "HD", serverName: "BK", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516801.m3u8" }] },
+      ];
+      
+      for (let i = 0; i < newsChannels.length; i++) {
+        const channelInfo = newsChannels[i];
+        const [channel] = await db.insert(channels).values({ name: channelInfo.name, category: "news", logoUrl: "text", displayOrder: 100 + i }).returning();
+        for (const stream of channelInfo.streams) {
+          await db.insert(channelStreams).values({ channelId: channel.id, quality: stream.quality, serverName: stream.serverName, encryptedUrl: encryptUrl(stream.url) });
+        }
+      }
+      res.json({ message: `Added ${newsChannels.length} news channels (shortened for demo)` });
+    } catch (error: any) {
+      console.error("Seed error:", error);
+      res.status(500).json({ message: "Seed failed", error: error.message });
     }
   });
 
