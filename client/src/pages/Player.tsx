@@ -9,25 +9,57 @@ import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { ArrowRight } from "lucide-react";
 
+interface ChannelServer {
+  name: string;
+  qualities: Array<{ quality: string; available: boolean }>;
+}
+
+interface Channel {
+  id: string;
+  name: string;
+  category: string;
+  servers: ChannelServer[];
+}
+
 export default function Player() {
   const [, setLocation] = useLocation();
   const params = useParams();
   const channelId = params.id || "";
   const { toast } = useToast();
-  const [currentQuality, setCurrentQuality] = useState<string>("FHD");
+  const [currentServer, setCurrentServer] = useState<string>("main");
+  const [currentQuality, setCurrentQuality] = useState<string>("");
   const [streamUrl, setStreamUrl] = useState<string>("");
 
   // Get channel data
-  const { data: channels = [] } = useQuery<Array<{ id: string; name: string; qualities: Array<{ quality: string; available: boolean }> }>>({
+  const { data: channels = [] } = useQuery<Channel[]>({
     queryKey: ["/api/channels"],
   });
 
   const channel = channels.find(c => c.id === channelId);
 
+  // Initialize quality when channel loads
+  useEffect(() => {
+    if (channel && channel.servers.length > 0 && !currentQuality) {
+      // Find main server or use first available
+      const mainServer = channel.servers.find(s => s.name === "main") || channel.servers[0];
+      setCurrentServer(mainServer.name);
+      
+      // Set initial quality (prefer FHD > HD > first available)
+      const preferredQualities = ["FHD", "HD", "LOW"];
+      const availableQuality = preferredQualities.find(q => 
+        mainServer.qualities.some(qual => qual.quality === q)
+      ) || mainServer.qualities[0]?.quality;
+      
+      if (availableQuality) {
+        setCurrentQuality(availableQuality);
+      }
+    }
+  }, [channel, currentQuality]);
+
   // Fetch stream URL
   const fetchStreamMutation = useMutation({
-    mutationFn: async (quality: string) => {
-      const response = await apiRequest("GET", `/api/stream/${channelId}/${quality}`);
+    mutationFn: async ({ quality, server }: { quality: string; server: string }) => {
+      const response = await apiRequest("GET", `/api/stream/${channelId}/${quality}?server=${server}`);
       return await response.json();
     },
     onSuccess: (data: any) => {
@@ -42,15 +74,19 @@ export default function Player() {
     },
   });
 
-  // Fetch stream when quality changes
+  // Fetch stream when quality or server changes
   useEffect(() => {
-    if (channelId && currentQuality) {
-      fetchStreamMutation.mutate(currentQuality);
+    if (channelId && currentQuality && currentServer) {
+      fetchStreamMutation.mutate({ quality: currentQuality, server: currentServer });
     }
-  }, [channelId, currentQuality]);
+  }, [channelId, currentQuality, currentServer]);
 
   const handleQualityChange = (quality: string) => {
     setCurrentQuality(quality);
+  };
+
+  const handleServerChange = (server: string) => {
+    setCurrentServer(server);
   };
 
   const handleBack = () => {
@@ -92,9 +128,11 @@ export default function Player() {
           <VideoPlayer
             streamUrl={streamUrl}
             channelName={channel.name}
-            qualities={channel.qualities.map(q => q.quality)}
+            servers={channel.servers}
+            currentServer={currentServer}
             currentQuality={currentQuality}
             onQualityChange={handleQualityChange}
+            onServerChange={handleServerChange}
           />
         </div>
       </main>

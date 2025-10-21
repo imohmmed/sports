@@ -1,30 +1,44 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Maximize, Volume2, VolumeX } from "lucide-react";
+import { Play, Pause, Maximize, Volume2, VolumeX, Server } from "lucide-react";
+
+interface ChannelServer {
+  name: string;
+  qualities: Array<{ quality: string; available: boolean }>;
+}
 
 interface VideoPlayerProps {
   streamUrl: string;
   channelName: string;
-  qualities: string[];
+  servers: ChannelServer[];
+  currentServer?: string;
   currentQuality?: string;
   onQualityChange?: (quality: string) => void;
+  onServerChange?: (server: string) => void;
 }
 
 export default function VideoPlayer({ 
   streamUrl,
   channelName, 
-  qualities, 
-  currentQuality = qualities[0],
-  onQualityChange 
+  servers,
+  currentServer = "main",
+  currentQuality = "",
+  onQualityChange,
+  onServerChange
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const [selectedServer, setSelectedServer] = useState(currentServer);
   const [selectedQuality, setSelectedQuality] = useState(currentQuality);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Get available qualities for current server
+  const currentServerData = servers.find(s => s.name === selectedServer);
+  const availableQualities = currentServerData?.qualities.map(q => q.quality) || [];
 
   useEffect(() => {
     const video = videoRef.current;
@@ -158,6 +172,25 @@ export default function VideoPlayer({
     onQualityChange?.(quality);
   };
 
+  const handleServerClick = (server: string) => {
+    setSelectedServer(server);
+    onServerChange?.(server);
+    
+    // Auto-select first available quality when switching servers
+    const newServerData = servers.find(s => s.name === server);
+    if (newServerData && newServerData.qualities.length > 0) {
+      const preferredQualities = ["FHD", "HD", "LOW"];
+      const availableQuality = preferredQualities.find(q => 
+        newServerData.qualities.some(qual => qual.quality === q)
+      ) || newServerData.qualities[0]?.quality;
+      
+      if (availableQuality) {
+        setSelectedQuality(availableQuality);
+        onQualityChange?.(availableQuality);
+      }
+    }
+  };
+
   return (
     <div 
       ref={containerRef}
@@ -186,9 +219,32 @@ export default function VideoPlayer({
           {channelName}
         </div>
 
+        {/* Server Selector */}
+        {servers.length > 1 && (
+          <div className="flex gap-2 mb-2 flex-wrap items-center">
+            <span className="text-white text-xs flex items-center gap-1">
+              <Server className="w-3 h-3" />
+              السيرفر:
+            </span>
+            {servers.map((server) => (
+              <Button
+                key={server.name}
+                size="sm"
+                variant={selectedServer === server.name ? "default" : "secondary"}
+                onClick={() => handleServerClick(server.name)}
+                className="text-xs"
+                data-testid={`button-server-${server.name}`}
+              >
+                {server.name.toUpperCase()}
+              </Button>
+            ))}
+          </div>
+        )}
+
         {/* Quality Selector */}
-        <div className="flex gap-2 mb-3 flex-wrap">
-          {qualities.map((quality) => (
+        <div className="flex gap-2 mb-3 flex-wrap items-center">
+          <span className="text-white text-xs">الجودة:</span>
+          {availableQualities.map((quality) => (
             <Button
               key={quality}
               size="sm"
