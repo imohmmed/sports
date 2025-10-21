@@ -18,8 +18,10 @@ The frontend is built with React, TypeScript, and Vite, utilizing `shadcn/ui` co
 
 The backend is a minimal Express.js + TypeScript server that provides:
 - **Channel Listing API**: Public endpoint (`/api/channels`) returning all available channels with category, servers, and quality options
-- **Stream URL Decryption**: Public endpoint (`/api/stream/:channelId/:quality?server=main|BK`) that decrypts stored stream URLs for specified server
-- **HLS Proxy System**: Public endpoint (`/api/proxy-stream?url=...`) that proxies HLS streams with hostname whitelist validation (tecflix.vip) to prevent SSRF attacks, including M3U8 playlist rewriting for absolute and relative URLs
+- **Stream Token Generation**: Public endpoint (`/api/stream/:channelId/:quality?server=main|BK`) that generates JWT-signed URLs with 15-minute expiry
+- **Secure Streaming**: Protected endpoint (`/api/secure-stream?token=...`) that validates JWT tokens and streams content with proper caching
+- **Legacy Proxy** (deprecated): Public endpoint (`/api/proxy-stream?url=...`) for backward compatibility (use secure-stream instead)
+- **Stream Protection**: All stream URLs are time-limited and channel-specific, preventing unauthorized access and URL theft
 
 The frontend is a **pure client-side application** with:
 - **No Authentication**: Direct access to all channels and streams
@@ -40,11 +42,16 @@ The frontend is a **pure client-side application** with:
 
 ### System Design Choices
 
-- **No Authentication**: Removed all authentication and session management for simplicity
-- **Minimal Backend**: Only provides channel data, stream decryption, and proxy functionality
+- **No User Authentication**: Removed all user authentication and session management for simplicity
+- **Stream Security**: JWT-based token authentication for all stream URLs (15-minute expiry)
+- **Minimal Backend**: Only provides channel data, stream token generation, and secure streaming
 - **Data Storage**: PostgreSQL with Drizzle ORM stores channel and stream information (no user data)
-- **Content Protection**: Stream URLs are AES-256-CBC encrypted at rest, decrypted on-demand
-- **HLS Proxy**: Handles CORS issues and rewrites M3U8 playlists to route all requests through backend proxy
+- **Content Protection**: 
+  - Stream URLs are AES-256-CBC encrypted at rest
+  - JWT tokens generated on-demand with channel-specific payload
+  - Tokens expire after 15 minutes to prevent URL theft
+  - Tokens cannot be reused across different channels
+- **Performance**: Direct streaming with proper cache headers for video segments (max-age: 1 year)
 
 ## External Dependencies
 
@@ -84,12 +91,21 @@ The frontend is a **pure client-side application** with:
 - **ADDED**: Server selector in video player for manual server switching
 - **SECURITY**: Added hostname whitelist validation to proxy endpoint to prevent SSRF attacks
 
+### Phase 3: Performance & Security Enhancements
+- **SECURITY**: Implemented JWT-based stream authentication with 15-minute token expiry
+- **PERFORMANCE**: New `/api/secure-stream` endpoint for faster, direct streaming with token validation
+- **SECURITY**: All stream URLs now protected with signed tokens to prevent URL theft
+- **PERFORMANCE**: Added proper cache headers (public, max-age for video segments)
+- **VALIDATION**: Enhanced stream URL validation with content-type checking
+- **SECURITY**: Tokens are channel-specific and time-limited, preventing unauthorized access
+
 ## Application Structure
 
 ### Backend Routes
 - `GET /api/channels` - Returns all channels with category, servers, and quality options per server
-- `GET /api/stream/:channelId/:quality?server=main|BK` - Returns decrypted stream URL for given channel, quality, and server
-- `GET /api/proxy-stream?url=<encoded_url>` - Proxies HLS streams with hostname whitelist validation and M3U8 playlist rewriting
+- `GET /api/stream/:channelId/:quality?server=main|BK` - Generates JWT-signed stream URL with 15-minute expiry
+- `GET /api/secure-stream?token=<jwt>` - Validates token and streams content with proper caching (replaces proxy-stream)
+- `GET /api/proxy-stream?url=<encoded_url>` - Legacy endpoint for backward compatibility (deprecated)
 
 ### Frontend Pages
 - `/` - HomePage: Displays channels filtered by category (sports/news) with tab navigation
