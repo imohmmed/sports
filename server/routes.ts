@@ -351,8 +351,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Proxy video streams to handle CORS and mixed content issues
+  // Legacy proxy endpoint - DISABLED for security
+  // This endpoint bypassed JWT authentication and is replaced by /api/secure-stream
   app.get("/api/proxy-stream", async (req, res) => {
+    return res.status(410).json({ 
+      message: "This endpoint has been disabled for security reasons. Use /api/secure-stream with JWT tokens instead.",
+      migrationGuide: "Get a signed token from /api/stream/:channelId/:quality, then access /api/secure-stream?token=<jwt>"
+    });
+  });
+
+  // Original proxy implementation (kept for reference, commented out)
+  /*
+  app.get("/api/proxy-stream-legacy", async (req, res) => {
     try {
       const targetUrl = req.query.url as string;
       if (!targetUrl) {
@@ -461,6 +471,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Proxy failed", error: error.message });
     }
   });
+  */
 
   // Create HTTP server
   const httpServer = createServer(app);

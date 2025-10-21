@@ -19,9 +19,15 @@ The frontend is built with React, TypeScript, and Vite, utilizing `shadcn/ui` co
 The backend is a minimal Express.js + TypeScript server that provides:
 - **Channel Listing API**: Public endpoint (`/api/channels`) returning all available channels with category, servers, and quality options
 - **Stream Token Generation**: Public endpoint (`/api/stream/:channelId/:quality?server=main|BK`) that generates JWT-signed URLs with 15-minute expiry
-- **Secure Streaming**: Protected endpoint (`/api/secure-stream?token=...`) that validates JWT tokens and streams content with proper caching
-- **Legacy Proxy** (deprecated): Public endpoint (`/api/proxy-stream?url=...`) for backward compatibility (use secure-stream instead)
-- **Stream Protection**: All stream URLs are time-limited and channel-specific, preventing unauthorized access and URL theft
+- **Secure Streaming**: Protected endpoint (`/api/secure-stream?token=...`) that:
+  - Validates JWT tokens with signature and expiry verification
+  - Rebuilds master playlist URLs from database (not exposed in token)
+  - Accepts nested resource URLs from token payload (segments, sub-playlists)
+  - Streams content with backpressure handling and Range support
+  - Rewrites M3U8 playlists to use signed URLs for all nested resources
+  - Enforces hostname whitelist (tecflix.vip) to prevent SSRF
+  - Returns proper cache headers (private, max-age for segments)
+- **Stream Protection**: All stream URLs are time-limited (15min), channel-specific, and hash-validated to prevent URL theft and tampering
 
 The frontend is a **pure client-side application** with:
 - **No Authentication**: Direct access to all channels and streams
@@ -99,13 +105,41 @@ The frontend is a **pure client-side application** with:
 - **VALIDATION**: Enhanced stream URL validation with content-type checking
 - **SECURITY**: Tokens are channel-specific and time-limited, preventing unauthorized access
 
+### Phase 4: Advanced Security & Performance (Current)
+- **SECURITY ENHANCEMENT**: Dual JWT approach for maximum security:
+  - Master playlists: JWT contains only channelId, quality, server, urlHash (URL rebuilt from database)
+  - Nested resources: JWT contains channelId, quality, server, urlHash, and URL (not in database)
+- **STREAMING PERFORMANCE**: Implemented true streaming with:
+  - ReadableStream support with backpressure handling (drain events)
+  - AbortController for timeout (30s) and client disconnect handling
+  - Forward Range headers for partial content support (206 responses)
+  - Forward conditional headers (If-Range, If-None-Match, If-Modified-Since)
+  - Proper 304 Not Modified handling with ETag/Last-Modified
+- **M3U8 PARSING**: Enhanced playlist rewriting with:
+  - #EXT-X-KEY URI support (encryption keys)
+  - #EXT-X-MAP URI support (initialization segments)
+  - Query string support in segment URLs (e.g., segment.ts?token=abc)
+  - Support for multiple segment types (.ts, .m3u8, .m4s, .mp4, .aac, .vtt)
+- **CACHE OPTIMIZATION**: Refined cache headers:
+  - Playlists: `private, no-cache, must-revalidate` (always fresh)
+  - Segments: `private, max-age=3600` (1 hour cache)
+- **SECURITY HARDENING**:
+  - SESSION_SECRET required at startup (prevents weak JWT signatures)
+  - Hostname whitelist enforced (tecflix.vip only)
+  - `/api/proxy-stream` disabled (HTTP 410 Gone) to prevent JWT bypass
+  - URL hash validation for all token types (prevents tampering)
+- **KNOWN LIMITATIONS**:
+  - Tokens can be replayed across devices during 15-minute validity (no session binding)
+  - No rate limiting on `/api/secure-stream` endpoint
+  - Fixed 30s timeout for all content types
+
 ## Application Structure
 
 ### Backend Routes
 - `GET /api/channels` - Returns all channels with category, servers, and quality options per server
 - `GET /api/stream/:channelId/:quality?server=main|BK` - Generates JWT-signed stream URL with 15-minute expiry
-- `GET /api/secure-stream?token=<jwt>` - Validates token and streams content with proper caching (replaces proxy-stream)
-- `GET /api/proxy-stream?url=<encoded_url>` - Legacy endpoint for backward compatibility (deprecated)
+- `GET /api/secure-stream?token=<jwt>` - Validates token and streams content with proper caching, backpressure, and Range support
+- `GET /api/proxy-stream` - **DISABLED** (returns HTTP 410 Gone) for security reasons
 
 ### Frontend Pages
 - `/` - HomePage: Displays channels filtered by category (sports/news) with tab navigation
