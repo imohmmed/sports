@@ -5,12 +5,13 @@ import channelThumb from "@assets/generated_images/BeIN_Sports_channel_thumbnail
 
 interface ChannelCardProps {
   name: string;
+  logoUrl?: string | null;
   qualities: Array<{ quality: string; available: boolean }>;
   locked?: boolean;
   onClick?: () => void;
 }
 
-export default function ChannelCard({ name, qualities, locked, onClick }: ChannelCardProps) {
+export default function ChannelCard({ name, logoUrl, qualities, locked, onClick }: ChannelCardProps) {
   return (
     <Card 
       className="group overflow-hidden hover-elevate active-elevate-2 transition-all duration-500 cursor-pointer hover:scale-105 hover:shadow-2xl hover:shadow-primary/20 animate-in fade-in slide-in-from-bottom-5"
@@ -18,12 +19,24 @@ export default function ChannelCard({ name, qualities, locked, onClick }: Channe
       data-testid={`card-channel-${name.replace(/\s+/g, '-')}`}
     >
       <div className="relative aspect-video">
-        <img 
-          src={channelThumb} 
-          alt={name}
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-500 group-hover:from-black/90" />
+        {logoUrl ? (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-6">
+            <div className="w-full h-full flex items-center justify-center">
+              <h2 className="text-white font-bold text-2xl md:text-3xl text-center transition-all duration-300 group-hover:text-primary group-hover:scale-110" style={{ fontFamily: 'Cairo, sans-serif' }}>
+                {name}
+              </h2>
+            </div>
+          </div>
+        ) : (
+          <>
+            <img 
+              src={channelThumb} 
+              alt={name}
+              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-opacity duration-500 group-hover:from-black/90" />
+          </>
+        )}
         
         {locked && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm transition-all duration-500">

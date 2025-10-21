@@ -45,6 +45,7 @@ export type User = typeof users.$inferSelect;
 export const channels = pgTable("channels", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
+  logoUrl: text("logo_url"), // Channel logo image URL
   category: varchar("category").notNull().default("sports"), // "sports" or "news"
   displayOrder: integer("display_order").notNull(),
   createdAt: timestamp("created_at").defaultNow(),

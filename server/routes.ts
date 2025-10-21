@@ -29,6 +29,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return {
             id: channel.id,
             name: channel.name,
+            logoUrl: channel.logoUrl,
             category: channel.category,
             servers: Object.keys(streamsByServer).map(serverName => ({
               name: serverName,

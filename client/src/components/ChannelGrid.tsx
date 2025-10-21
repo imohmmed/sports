@@ -8,6 +8,7 @@ interface ChannelServer {
 interface Channel {
   id: string;
   name: string;
+  logoUrl?: string | null;
   servers: ChannelServer[];
 }
 
@@ -41,6 +42,7 @@ export default function ChannelGrid({ channels, locked, onChannelClick }: Channe
             >
               <ChannelCard
                 name={channel.name}
+                logoUrl={channel.logoUrl}
                 qualities={uniqueQualities}
                 locked={locked}
                 onClick={() => onChannelClick?.(channel.id)}

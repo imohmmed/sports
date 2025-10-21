@@ -5,6 +5,7 @@ import { eq, sql } from "drizzle-orm";
 
 interface ChannelData {
   name: string;
+  logoUrl?: string;
   category: "sports" | "news";
   streams: {
     quality: string;
@@ -16,6 +17,7 @@ interface ChannelData {
 const newsChannels: ChannelData[] = [
   {
     name: "الجزيرة",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "FHD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516744.m3u8" },
@@ -26,6 +28,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الجزيرة مباشر",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516747.m3u8" },
@@ -34,6 +37,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الجزيرة DOC",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516748.m3u8" },
@@ -42,6 +46,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "العربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516749.m3u8" },
@@ -51,6 +56,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "العربية الحدث",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516751.m3u8" },
@@ -59,6 +65,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الحرة",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516756.m3u8" },
@@ -67,6 +74,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "Sky News عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516752.m3u8" },
@@ -75,6 +83,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "BBC عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516753.m3u8" },
@@ -83,6 +92,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "DW عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516754.m3u8" },
@@ -91,6 +101,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "France 24 عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516755.m3u8" },
@@ -99,6 +110,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الشرق",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "FHD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516758.m3u8" },
@@ -108,6 +120,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "TRT عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516760.m3u8" },
@@ -116,6 +129,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "CGTN عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516761.m3u8" },
@@ -124,6 +138,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الميدان",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516762.m3u8" },
@@ -131,6 +146,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "CNBC عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516764.m3u8" },
@@ -139,6 +155,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "العلم",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516765.m3u8" },
@@ -147,6 +164,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "العربي",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516766.m3u8" },
@@ -155,6 +173,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "العربي 2",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "FHD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516767.m3u8" },
@@ -163,6 +182,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "المستقلة",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516769.m3u8" },
@@ -171,6 +191,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "IRAN INTERNATIONAL",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516770.m3u8" },
@@ -179,6 +200,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "العربية Business",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "FHD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516772.m3u8" },
@@ -188,6 +210,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الغد",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516773.m3u8" },
@@ -196,6 +219,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "NRT عربية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516774.m3u8" },
@@ -204,6 +228,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الشرقية News",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516775.m3u8" },
@@ -212,6 +237,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "السومرية",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516776.m3u8" },
@@ -220,6 +246,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الفلوجة",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516778.m3u8" },
@@ -228,6 +255,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "TRT WORLD",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516779.m3u8" },
@@ -236,6 +264,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "المسيرة",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516780.m3u8" },
@@ -244,6 +273,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "المسيرة 2",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516782.m3u8" },
@@ -252,6 +282,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "فلسطين اليوم",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516784.m3u8" },
@@ -260,6 +291,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الأقصى",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516785.m3u8" },
@@ -268,6 +300,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "RT ENGLISH",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516786.m3u8" },
@@ -276,6 +309,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "Press TV",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516787.m3u8" },
@@ -284,6 +318,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "المنار",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516788.m3u8" },
@@ -292,6 +327,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "Al Mayadeen English",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516790.m3u8" },
@@ -300,6 +336,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "LBCI",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516791.m3u8" },
@@ -308,6 +345,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "OTV",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516792.m3u8" },
@@ -316,6 +354,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "MTV",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516793.m3u8" },
@@ -324,6 +363,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "Future TV",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516794.m3u8" },
@@ -332,6 +372,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "الجديد",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516795.m3u8" },
@@ -340,6 +381,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "Tele Liban",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516796.m3u8" },
@@ -348,6 +390,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "NBN",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516797.m3u8" },
@@ -356,6 +399,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "Lebanon 24",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "main", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516798.m3u8" },
@@ -364,6 +408,7 @@ const newsChannels: ChannelData[] = [
   },
   {
     name: "Russia Today",
+    logoUrl: "text",
     category: "news",
     streams: [
       { quality: "HD", serverName: "BK", url: "http://tecflix.vip:80/live/2D9C0C398918689B8650CC3D84FEB4D7/516810.m3u8" },
@@ -405,6 +450,7 @@ async function seedNewsChannels() {
           .insert(channels)
           .values({
             name: channelData.name,
+            logoUrl: channelData.logoUrl,
             category: channelData.category,
             displayOrder: 100 + addedCount,
           })
